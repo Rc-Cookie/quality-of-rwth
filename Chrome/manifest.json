@@ -23,7 +23,7 @@
 
     "action": {
         "default_icon": "icons/htwr.png",
-        // "browser_style": true,
+        "browser_style": true,
         "default_popup": "popup.html"
     }
 }
