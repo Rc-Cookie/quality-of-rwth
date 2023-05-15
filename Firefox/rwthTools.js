@@ -51,7 +51,7 @@ function searchSessionKey() {
     if(!node) return console.log("No session key found");
     const sesskey = node.value;
     console.log("Session key:", sesskey);
-    (browser.storage.session || browser.storage.sync).set({ sesskey: sesskey });
+    browser.storage.local.set({ sesskey: sesskey });
 }
 
 function onMoodleLoginPage() {

@@ -16,7 +16,7 @@
       hr {
         height: 1px;
         border-width: 0px;
-        background-color: #71707a;
+        background-color: #71707a; /* #71707a in Chrome */
       }
 
       .item {
@@ -37,17 +37,17 @@
       }
 
       .clickable-item:hover {
-        background-color: #53525d;
+        background-color: #53525d; /* #414245 in Chrome */
       }
 
       .clickable-item:active {
-        background-color: #71707a;
+        background-color: #71707a; /* #5f5f63 in Chrome */
       }
     </style>
   </head>
 
   <body>
-    <div style="margin: 8px">
+    <div style="margin: 8px"> <!-- "width: calc(100% - 2*8px)" for Chrome -->
       <div id="top-message" class="item title-item">Moodle courses</div>
       <hr id="top-rule"></hr>
       <div id="list" hidden>

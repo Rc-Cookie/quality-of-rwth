@@ -3,7 +3,7 @@ main();
 function main() {
     for(const input of document.getElementsByClassName("settings-checkbox")) {
         const name = input.name;
-        browser.storage.sync.get(name, settings => {
+        browser.storage.sync.get(name).then(settings => {
             if(settings[name] !== undefined) input.checked = settings[name];
         });
         input.onchange = () => {
@@ -14,7 +14,7 @@ function main() {
     }
     for(const input of document.getElementsByClassName("settings-value")) {
         const name = input.name;
-        browser.storage.sync.get(name, settings => {
+        browser.storage.sync.get(name).then(settings => {
             if(settings[name] !== undefined) input.value = settings[name];
         });
         input.onchange = () => {

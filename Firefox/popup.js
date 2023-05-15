@@ -8,7 +8,7 @@ main();
 
 function main() {
     tryLoadCachedCourses();
-    (browser.storage.session || browser.storage.sync).onChanged.addListener(onStorageChanged);
+    browser.storage.local.onChanged.addListener(onStorageChanged);
     loadCourses();
 }
 
@@ -27,8 +27,12 @@ async function cacheCourses(courses) {
 }
 
 async function loadCourses(isRetry) {
-    const sesskey = (await (browser.storage.session || browser.storage.sync).get("sesskey")).sesskey;
-    if(!sesskey) return buildNotLoggedInHTML();
+    const sesskey = (await browser.storage.local.get("sesskey")).sesskey;
+    if(!sesskey) {
+        bottomMessage.innerText = "You are not logged in.";
+        bottomMessage.hidden = false;
+        bottomRule.hidden = list.hidden;
+    }
 
     bottomMessage.innerText = "Refreshing courses...";
     bottomMessage.hidden = !isRetry;
@@ -167,5 +171,5 @@ async function tryFetchSesskey() {
     const sesskey = html.match(/(sesskey=[a-zA-Z0-9]{10})/)
     if(sesskey === null) return buildNotLoggedInHTML();
 
-    (browser.storage.session || browser.storage.sync).set({ sesskey: sesskey[0].substring(8) }); // Invokes onChanged
+    browser.storage.local.set({ sesskey: sesskey[0].substring(8) }); // Invokes onChanged
 }
