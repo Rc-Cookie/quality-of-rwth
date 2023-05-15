@@ -5,15 +5,35 @@
 </head>
 <body>
     <form>
-        <label><input class="settings-checkbox" type="checkbox" name="moodleStartAutoForward" checked>Auto-forward to SSO from the moodle start page</label>
-        <br>
-        <label><input class="settings-checkbox" type="checkbox" name="rwthOnlineLigonAutoForward" checked>Auto-forward to SSO from the RWTHOnline start page</label>
-        <br>
-        <label><input class="settings-checkbox" type="checkbox" name="ssoAutoSubmit" checked>Automatically submit the login credentials on SSO when they get filled in by the browser</label>
-        <br>
-        <label><input class="settings-checkbox" type="checkbox" name="skipPDFAnnotator" checked>Open PDFs directly instead of using Moodle's PDF annotator</label>
-        <br>
-        <label><input class="settings-value" name="maxCourses" type="number" step="1" min="1" max="50" value="10">Maximum number of courses to show in dropdown. Higher numbers may increase load time</label>
+        <table>
+            <tr>
+                <td><input class="settings-checkbox" type="checkbox" name="moodleStartAutoForward" checked></td>
+                <td>Auto-forward to SSO from the moodle start page</td>
+            </tr>
+            <tr>
+                <td><input class="settings-checkbox" type="checkbox" name="rwthOnlineLigonAutoForward" checked></td>
+                <td>Auto-forward to SSO from the RWTHOnline start page</td>
+            </tr>
+            <tr>
+                <td><input class="settings-checkbox" type="checkbox" name="ssoAutoSubmit" checked></td>
+                <td>Automatically submit the login credentials on SSO when they get filled in by the browser</td>
+            </tr>
+            <tr>
+                <td><input class="settings-checkbox" type="checkbox" name="skipPDFAnnotator" checked></td>
+                <td>Open PDFs directly instead of using Moodle's PDF annotator</td>
+            </tr>
+            <tr>
+                <td><input class="settings-value" name="maxCourses" type="number" step="1" min="1" max="50" value="10"></td>
+                <td>Maximum number of courses to show in dropdown. Higher numbers may increase load time</td>
+            </tr>
+            <tr>
+                <td><select class="settings-dropdown" name="courseOrder">
+                    <option value="time">By access time</option>
+                    <option value="name">By name</option>
+                </select></td>
+                <td>Sorting order for courses in the toolbar dropdown menu</td>
+            </tr>
+        </table>
     </form>
     <script src='options.js'></script>
 </body>
