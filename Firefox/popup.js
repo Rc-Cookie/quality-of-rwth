@@ -38,6 +38,8 @@ async function loadCourses(isRetry) {
     bottomMessage.hidden = !isRetry;
     bottomRule.hidden = !isRetry || list.hidden;
 
+    const byTime = (await browser.storage.sync.get("courseOrder")).courseOrder !== "name"; // Default to true
+
     const resp = await fetch("https://moodle.rwth-aachen.de/lib/ajax/service.php?sesskey="+sesskey, {
         method: "post",
         body: JSON.stringify([{
@@ -46,8 +48,8 @@ async function loadCourses(isRetry) {
             args: {
                 offset: 0,
                 limit: (await browser.storage.sync.get("maxCourses")).maxCourses || 10,
-                classification: "all",
-                sort: "ul.timeaccess desc"
+                classification: byTime ? "all" : "inprogress",
+                sort: byTime ? "ul.timeaccess desc" : "fullname"
             }
         }])
     }).then(r => r.json());
@@ -55,7 +57,7 @@ async function loadCourses(isRetry) {
     if(!resp[0].error) {
         bottomMessage.hidden = bottomRule.hidden = true;
         buildHTML(resp[0].data.courses);
-        cacheCourses(resp[0].data.courses);
+        cacheCourses(resp[0].data.courses, byTime);
     }
     else if(!isRetry && resp[0].exception.errorcode === "invalidsesskey")
         tryFetchSesskey();
@@ -83,7 +85,8 @@ function buildHTML(courses) {
     for(const i in courses) {
         const course = courses[i];
 
-        function updateCache() {
+        async function updateCache() {
+            if((await browser.storage.sync.get("courseOrder")).courseOrder === "name") return;
             // Cache that this course is now most likely on top
             let newCache = [];
             newCache[0] = courses[i];
