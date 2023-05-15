@@ -57,7 +57,7 @@ async function loadCourses(isRetry) {
     if(!resp[0].error) {
         bottomMessage.hidden = bottomRule.hidden = true;
         buildHTML(resp[0].data.courses);
-        cacheCourses(resp[0].data.courses, byTime);
+        cacheCourses(resp[0].data.courses);
     }
     else if(!isRetry && resp[0].exception.errorcode === "invalidsesskey")
         tryFetchSesskey();
