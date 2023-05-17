@@ -20,6 +20,10 @@ let functions = {
     skipPDFAnnotator: {
         regex: /^moodle\.rwth-aachen\.de\/mod\/pdfannotator\/view\.php/,
         action: onPDFAnnotator
+    },
+    clickURLResources: {
+        regex: /^moodle\.rwth-aachen.de\/mod\/url\/view\.php\?(?!stay=true)/,
+        action: onURLResource
     }
 }
 
@@ -27,13 +31,9 @@ main();
 
 async function main() {
 
-    let url = location.href;
-    if(!url.includes("rwth-aachen")) return;
-
-    url = url.replace(/https?\:\/\//, "");
+    let url = location.href.replace(/https?\:\/\//, "");
     if(url.endsWith("/"))
         url = url.substring(0, url.length - 1);
-    console.log("URL:", url);
 
     for(let [name, info] of Object.entries(functions)) {
         if(!url.match(info.regex)) continue;
@@ -50,7 +50,6 @@ function searchSessionKey() {
     const node = document.getElementsByName("sesskey")[0];
     if(!node) return console.log("No session key found");
     const sesskey = node.value;
-    console.log("Session key:", sesskey);
     browser.storage.local.set({ sesskey: sesskey });
 }
 
@@ -60,7 +59,6 @@ function onMoodleLoginPage() {
 
 function onRWTHOnlineLoginPage() {
     when(() => document.getElementsByClassName("ca-button btn btn-primary btn-block").length != 0).then(() => {
-        console.log("Login button found, redirecting...")
         location.href = "https://online.rwth-aachen.de/RWTHonline/Login";
     });
 }
@@ -88,6 +86,15 @@ function onSSO() {
     let typed = false;
     password.addEventListener("keyup", () => typed = true);
     password.onchange = () => { if(!typed) login.click(); }
+}
+
+function onURLResource() {
+    const div = document.querySelector("[role=main]");
+    if(!div) return;
+    const a = div.getElementsByTagName("a")[0];
+    if(!a) return;
+    history.replaceState(null, "", location.href.replace("?", "?stay=true&"));
+    a.click();
 }
 
 function when(condition) {
