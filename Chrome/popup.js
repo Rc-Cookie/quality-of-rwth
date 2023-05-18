@@ -16,6 +16,8 @@ function main() {
 
 function onStorageChanged(change) {
     if(change.sesskey) loadCourses(true);
+    else if(change.courseCache && change.courseCache.newValue)
+        buildHTML(change.courseCache.newValue);
 }
 
 async function tryLoadCachedCourses() {
@@ -24,7 +26,6 @@ async function tryLoadCachedCourses() {
 }
 
 async function cacheCourses(courses) {
-    await browser.storage.local.remove("courseCache");
     await browser.storage.local.set({ courseCache: courses })
 }
 
@@ -61,7 +62,7 @@ async function loadCourses(isRetry) {
         buildHTML(resp[0].data.courses);
         cacheCourses(resp[0].data.courses);
     }
-    else if(!isRetry && resp[0].exception.errorcode === "invalidsesskey")
+    else if(!isRetry && (resp[0].exception.errorcode === "servicerequireslogin" || resp[0].exception.errorcode === "invalidsesskey"))
         tryFetchSesskey();
     else {
         if(resp[0].exception.errorcode === "servicerequireslogin")
@@ -174,7 +175,12 @@ async function tryFetchSesskey() {
     console.log("(This 404 is on purpose, not an error)");
 
     const sesskey = html.match(/(sesskey=[a-zA-Z0-9]{10})/)
-    if(sesskey === null) return buildNotLoggedInHTML();
+    if(sesskey === null) {
+        bottomMessage.innerText = "You are not logged in.";
+        bottomMessage.hidden = false;
+        bottomRule.hidden = list.hidden;
+        return;
+    }
 
     browser.storage.local.set({ sesskey: sesskey[0].substring(8) }); // Invokes onChanged
 }

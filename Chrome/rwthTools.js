@@ -48,11 +48,42 @@ async function main() {
     }
 }
 
-function searchSessionKey() {
+async function searchSessionKey() {
     const node = document.getElementsByName("sesskey")[0];
     if(!node) return console.log("No session key found");
     const sesskey = node.value;
-    browser.storage.local.set({ sesskey: sesskey });
+    console.log("Session key:", sesskey);
+    // Don't access browser.storage.local directly, when running in containers or similar this won't be visible
+    // from the popup storage. Instead, send the data to the background script which should always be running
+    // in the same context as the popup window as neither really belongs to any tab
+    browser.runtime.sendMessage({ command: "setStorage", storage: "local", data: { sesskey: sesskey } });
+    // Also, sometimes (?) cookies are required for the course info request. When running in coutainers, the
+    // popup script does not have access to those cookies, and here we don't have access to the cookies API to
+    // read them. Thus, we request the courses now and cache them for later use. The popup window will still show
+    // 'Not logged in' because it can't re-request the courses, but it can at least display the last cached value.
+    cacheCourses(sesskey);
+}
+
+async function cacheCourses(sesskey) {
+    const byTime = (await browser.storage.sync.get("courseOrder")).courseOrder !== "name"; // Default to true
+    const resp = await fetch("https://moodle.rwth-aachen.de/lib/ajax/service.php?sesskey="+sesskey, {
+        method: "post",
+        body: JSON.stringify([{
+            index: 0,
+            methodname: "core_course_get_enrolled_courses_by_timeline_classification",
+            args: {
+                offset: 0,
+                limit: (await browser.storage.sync.get("maxCourses")).maxCourses || 10,
+                classification: byTime ? "all" : "inprogress",
+                sort: byTime ? "ul.timeaccess desc" : "fullname"
+            }
+        }])
+    }).then(r => r.json());
+    if(resp[0].error)
+        return console.error("Failed to load courses");
+
+    // await browser.runtime.sendMessage({ command: "removeStorage", storage: "local", name: "courseCache" });
+    await browser.runtime.sendMessage({ command: "setStorage", storage: "local", data: { courseCache: resp[0].data.courses } })
 }
 
 function onMoodleLoginPage() {

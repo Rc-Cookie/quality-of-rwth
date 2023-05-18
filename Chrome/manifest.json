@@ -1,26 +1,30 @@
 {
     "manifest_version": 3,
     "name": "Quality of RWTH",
-    "version": "1.0.3",
-
+    "version": "1.0.4",
     "description": "Makes RWTH websites more enjoyable",
-    
     "permissions": [
         "*://*.rwth-aachen.de/*",
         "storage"
     ],
-
     "content_scripts": [
         {
-            "matches": ["*://*.rwth-aachen.de/*"],
-            "js": ["rwthTools.js"]
+            "matches": [
+                "*://*.rwth-aachen.de/*"
+            ],
+            "js": [
+                "rwthTools.js"
+            ]
         }
     ],
-
+    "background": {
+        "scripts": [
+            "storageServer.js"
+        ]
+    },
     "options_ui": {
         "page": "options.html"
     },
-
     "action": {
         "default_icon": "icons/htwr.png",
         "browser_style": true,
