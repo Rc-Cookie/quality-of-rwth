@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "Quality of RWTH",
-    "version": "1.0.3",
+    "version": "1.0.4",
 
     "description": "Makes RWTH websites more enjoyable",
     
@@ -16,6 +16,11 @@
             "js": ["rwthTools.js"]
         }
     ],
+    "background": {
+        "scripts": [
+            "storageServer.js"
+        ]
+    },
 
     "options_ui": {
         "page": "options.html"
