@@ -2,6 +2,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import com.github.rccookie.json.Json;
 import com.github.rccookie.json.JsonObject;
@@ -29,6 +31,17 @@ public class ChromePorter {
             manifest.put("action", manifest.get("browser_action"));
             manifest.remove("browser_action");
             manifest.remove("browser_specific_settings");
+        }
+        if(manifest.contains("background") && manifest.getObject("background").contains("scripts")) {
+            String[] scripts = manifest.getElement("background").get("scripts").as(String[].class);
+            manifest.getObject("background").remove("scripts");
+            if(scripts.length == 1)
+                manifest.getObject("background").put("service_worker", scripts[0]);
+            else {
+                String workerJS = "importScripts(" + Arrays.stream(scripts).map(s -> "'"+s+"'").collect(Collectors.joining(", ")) + ");\n";
+                Files.writeString(dst.resolve("_backgroundWorker.js"), workerJS);
+                manifest.getObject("background").put("service_worker", "_backgroundWorker.js");
+            }
         }
         Json.store(manifest, dst.resolve("manifest.json"));
 
