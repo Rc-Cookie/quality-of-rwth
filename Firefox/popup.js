@@ -104,11 +104,15 @@ function buildHTML(courses) {
         const before = document.createTextNode(name.substring(0, name.indexOf(main)));
         const after = document.createTextNode(name.substring(name.indexOf(main) + main.length));
 
+        const a = document.createElement("a");
+        a.href = course.viewurl;
+
         const div = document.createElement("div");
         div.className = "item clickable-item";
         div.onclick = e => {
+            e.preventDefault();
             updateCache();
-            if(e.ctrlKey)
+            if(e.ctrlKey) // Chrome: if(false) // Chrome popups don't support loading a website into the popup - at least not out of the box
                 document.location.href = course.viewurl;
             else {
                 browser.tabs.update({ url: course.viewurl });
@@ -126,7 +130,9 @@ function buildHTML(courses) {
         div.appendChild(before);
         div.appendChild(b);
         div.appendChild(after);
-        list.appendChild(div);
+
+        a.appendChild(div);
+        list.appendChild(a);
 
         // const imgSrc = course.courseimage;
         // if(imgSrc.startsWith("data:image/svg+xml;base64,")) {
