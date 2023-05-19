@@ -9,6 +9,25 @@ let functions = {
         regex: /^online\.rwth-aachen\.de\/RWTHonline\/ee\/ui\/ca2\/app\/desktop\/#\/login$/,
         action: onRWTHOnlineLoginPage
     },
+    videoAGAutoLoginForward: {
+        regex: /^video\.fsmpi\.rwth-aachen\.de\/[^\/]+\/\d+$/,
+        action: onVideoAG,
+        allowSubsequent: true
+    },
+    autoSelectInstitution: {
+        regex: /^oauth\.campus\.rwth-aachen\.de\/login\/shibboleth\/?(\?.*)?$/,
+        action: onSelectInstitution
+    },
+    autoAuthorize: {
+        regex: /^oauth\.campus\.rwth-aachen\.de\/manage\/?\?q=verify/,
+        action: onAutoAuthorize,
+        allowSubsequent: true,
+        setting: "undefined" // Always run to store the known apps
+    },
+    autoCloseAfterAuthorize: {
+        regex: /^oauth\.campus\.rwth-aachen\.de\/manage\/?\?.*q=authorized/,
+        action: onAuthorizeDone
+    },
     ssoAutoSubmit: {
         regex: /^sso\.rwth-aachen\.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
         action: onSSO,
@@ -26,6 +45,10 @@ let functions = {
     clickURLResources: {
         regex: /^moodle\.rwth-aachen.de\/mod\/url\/view\.php\?(?!stay=true)/,
         action: onURLResource
+    },
+    loadVideoData: {
+        regex: /^moodle\.rwth-aachen\.de\/mod\/lti\/view\.php/,
+        action: onVideo
     }
 }
 
@@ -40,8 +63,9 @@ async function main() {
     for(let [name, info] of Object.entries(functions)) {
         if(!url.match(info.regex)) continue;
         console.log(name);
-        browser.storage.sync.get(name).then(settings => {
-            if((settings[name] === undefined && info.default !== false) || settings[name] === true)
+        const settingsName = info.setting || name;
+        browser.storage.sync.get(settingsName).then(settings => {
+            if((settings[settingsName] === undefined && info.default !== false) || settings[settingsName] === true)
                 info.action();
         });
         if(!info.allowSubsequent) return;
@@ -96,6 +120,38 @@ function onRWTHOnlineLoginPage() {
     });
 }
 
+function onVideoAG() {
+    const a = document.getElementsByClassName("reloadonclose")[0];
+    if(a) browser.runtime.sendMessage({ command: "browser.tabs.create", data: { url: a.href } });
+}
+
+async function onSelectInstitution() {
+    const index = (await browser.storage.sync.get("intitution")).institution == "jülich" ? 1 : 0;
+    document.getElementsByClassName("row")[0].children[index].getElementsByTagName("a")[0].click();
+}
+
+async function onAutoAuthorize() {
+    const app = document.getElementsByClassName("text-info")[0].innerText;
+    const known = (await browser.storage.sync.get("authorizedApps")).authorizedApps || [];
+    const button = document.getElementsByTagName("form")[0].getElementsByClassName("btn")[0];
+
+    if(known.includes(app)) {
+        if((await browser.storage.sync.get("autoAuthorize")).autoAuthorize !== false)
+            button.click();
+        return;
+    }
+
+    button.addEventListener("click", () => {
+        if(known.includes(app)) return; // If clicked multiple times somehow
+        known.push(app);
+        browser.storage.sync.set({ authorizedApps: known });
+    })
+}
+
+function onAuthorizeDone() {
+    browser.runtime.sendMessage({ command: "closeActiveTabAndReload"});
+}
+
 function onPDFAnnotator() {
     let url = document.getElementById("myprinturl");
     if(!url) return;
@@ -129,6 +185,11 @@ function onURLResource() {
     history.replaceState(null, "", location.href.replace("?", "?stay=true&"));
     a.click();
 }
+
+function onVideo() {
+    // TODO
+}
+
 
 function when(condition) {
     const poll = resolve => {
