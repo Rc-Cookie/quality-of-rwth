@@ -1,9 +1,14 @@
 const browser = chrome;
 
-const topMessage = document.getElementById("top-message");
-const topRule = document.getElementById("top-rule");
-const list = document.getElementById("list");
-const bottomRule = document.getElementById("bottom-rule");
+const listArea = document.getElementById("course-list");
+const listContainer = document.getElementById("course-list-container");
+
+const downloadArea = document.getElementById("video-download");
+const video1080p = document.getElementById("video-1080p");
+const video720p = document.getElementById("video-720p");
+const videoStreamingLink = document.getElementById("video-streaming-link")
+
+const footer = document.getElementById("footer");
 const bottomMessage = document.getElementById("bottom-message");
 
 main();
@@ -12,12 +17,15 @@ function main() {
     tryLoadCachedCourses();
     browser.storage.local.onChanged.addListener(onStorageChanged);
     loadCourses();
+    tryLoadVideoDownloads();
 }
 
 function onStorageChanged(change) {
     if(change.sesskey) loadCourses(true);
     else if(change.courseCache && change.courseCache.newValue)
         buildHTML(change.courseCache.newValue);
+    else if(change.videoInfos)
+        tryLoadVideoDownloads();
 }
 
 async function tryLoadCachedCourses() {
@@ -33,13 +41,12 @@ async function loadCourses(isRetry) {
     const sesskey = (await browser.storage.local.get("sesskey")).sesskey;
     if(!sesskey) {
         bottomMessage.innerText = "You are not logged in.";
-        bottomMessage.hidden = false;
-        bottomRule.hidden = list.hidden;
+        footer.hidden = false;
+        return;
     }
 
     bottomMessage.innerText = "Refreshing courses...";
-    bottomMessage.hidden = !isRetry;
-    bottomRule.hidden = !isRetry || list.hidden;
+    footer.hidden = !isRetry;
 
     const byTime = (await browser.storage.sync.get("courseOrder")).courseOrder !== "name"; // Default to true
 
@@ -58,7 +65,7 @@ async function loadCourses(isRetry) {
     }).then(r => r.json());
 
     if(!resp[0].error) {
-        bottomMessage.hidden = bottomRule.hidden = true;
+        footer.hidden = true;
         buildHTML(resp[0].data.courses);
         cacheCourses(resp[0].data.courses);
     }
@@ -73,17 +80,13 @@ async function loadCourses(isRetry) {
             bottomMessage.innerText = "Failed to refresh courses. Maybe you are not logged in?";
             console.error("Unexpected error:", resp[0].exception);
         }
-        bottomMessage.hidden = false;
-        bottomRule.hidden = list.hidden;
+        footer.hidden = false;
     }
 }
 
 function buildHTML(courses) {
-    list.replaceChildren();
-
-    list.hidden = false;
-    topRule.hidden = topMessage.hidden;
-    bottomRule.hidden = bottomMessage.hidden;
+    listContainer.replaceChildren();
+    listArea.hidden = false;
 
     for(const i in courses) {
         const course = courses[i];
@@ -110,7 +113,7 @@ function buildHTML(courses) {
         a.href = course.viewurl;
 
         const div = document.createElement("div");
-        div.className = "item clickable-item";
+        div.className = "base-item item clickable-item";
         div.onclick = e => {
             e.preventDefault();
             updateCache();
@@ -134,7 +137,7 @@ function buildHTML(courses) {
         div.appendChild(after);
 
         a.appendChild(div);
-        list.appendChild(a);
+        listContainer.appendChild(a);
 
         // const imgSrc = course.courseimage;
         // if(imgSrc.startsWith("data:image/svg+xml;base64,")) {
@@ -162,20 +165,11 @@ function getMainName(name) {
     return segments[max];
 }
 
-function createItem(onclick) {
-    const div = document.createElement("div");
-    div.className = onclick ? "item clickable-item" : "item";
-    if(onclick)
-        div.onclick = onclick;
-    return div;
-}
-
 async function tryFetchSesskey() {
     console.log("Trying to fetch session key...");
 
     bottomMessage.innerText = "Refreshing courses...";
-    bottomMessage.hidden = false;
-    bottomRule.hidden = list.hidden;
+    footer.hidden = false;
 
     const html = await fetch("https://moodle.rwth-aachen.de/course/view.php").then(r => r.text()); // This page does not exist without courseid, but thus loads quickly
     console.log("(This 404 is on purpose, not an error)");
@@ -183,10 +177,30 @@ async function tryFetchSesskey() {
     const sesskey = html.match(/(sesskey=[a-zA-Z0-9]{10})/)
     if(sesskey === null) {
         bottomMessage.innerText = "You are not logged in.";
-        bottomMessage.hidden = false;
-        bottomRule.hidden = list.hidden;
         return;
     }
 
     browser.storage.local.set({ sesskey: sesskey[0].substring(8) }); // Invokes onChanged
+}
+
+
+
+async function tryLoadVideoDownloads() {
+    const tab = (await browser.tabs.query({ active: true, windowId: (await browser.windows.getLastFocused()).id }))[0];
+    if(!tab.url) return;
+    const info = ((await browser.storage.local.get("videoInfos")).videoInfos || {})[tab.url];
+    if(!info) return;
+    console.log("Tab video info:", info);
+
+    const track1080p = info.tracks.find(t => t.resolution === "1920x1080");
+    const track720p = info.tracks.find(t => t.resolution === "1280x720");
+    video1080p.hidden = !track1080p;
+    video720p.hidden = !track720p;
+    video1080p.onclick = () => browser.downloads.download({ url: track1080p.url });
+    video720p.onclick = () => browser.downloads.download({ url: track720p.url });
+
+    videoStreamingLink.hidden = !info.stream;
+    videoStreamingLink.onclick = () => navigator.clipboard.writeText(info.stream);
+
+    downloadArea.hidden = false;
 }
