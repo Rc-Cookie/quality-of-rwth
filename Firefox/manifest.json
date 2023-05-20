@@ -7,7 +7,9 @@
     
     "permissions": [
         "*://*.rwth-aachen.de/*",
-        "storage"
+        "storage",
+        "downloads",
+        "tabs"
     ],
 
     "content_scripts": [
