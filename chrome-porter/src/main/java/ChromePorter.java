@@ -26,21 +26,23 @@ public class ChromePorter {
         Files.createDirectories(dst);
 
         JsonObject manifest = Json.load(src.resolve("manifest.json")).asObject();
-        manifest.put("manifest_version", 3);
-        if(manifest.contains("browser_action")) {
-            manifest.put("action", manifest.get("browser_action"));
-            manifest.remove("browser_action");
-            manifest.remove("browser_specific_settings");
-        }
-        if(manifest.contains("background") && manifest.getObject("background").contains("scripts")) {
-            String[] scripts = manifest.getElement("background").get("scripts").as(String[].class);
-            manifest.getObject("background").remove("scripts");
-            if(scripts.length == 1)
-                manifest.getObject("background").put("service_worker", scripts[0]);
-            else {
-                String workerJS = "importScripts(" + Arrays.stream(scripts).map(s -> "'"+s+"'").collect(Collectors.joining(", ")) + ");\n";
-                Files.writeString(dst.resolve("_backgroundWorker.js"), workerJS);
-                manifest.getObject("background").put("service_worker", "_backgroundWorker.js");
+        if(manifest.getInt("manifest_version") != 3) {
+            manifest.put("manifest_version", 3);
+            if(manifest.contains("browser_action")) {
+                manifest.put("action", manifest.get("browser_action"));
+                manifest.remove("browser_action");
+                manifest.remove("browser_specific_settings");
+            }
+            if(manifest.contains("background") && manifest.getObject("background").contains("scripts")) {
+                String[] scripts = manifest.getElement("background").get("scripts").as(String[].class);
+                manifest.getObject("background").remove("scripts");
+                if(scripts.length == 1)
+                    manifest.getObject("background").put("service_worker", scripts[0]);
+                else {
+                    String workerJS = "importScripts(" + Arrays.stream(scripts).map(s -> "'" + s + "'").collect(Collectors.joining(", ")) + ");\n";
+                    Files.writeString(dst.resolve("_backgroundWorker.js"), workerJS);
+                    manifest.getObject("background").put("service_worker", "_backgroundWorker.js");
+                }
             }
         }
         Json.store(manifest, dst.resolve("manifest.json"));
