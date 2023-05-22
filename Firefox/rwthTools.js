@@ -8,7 +8,7 @@ let functions = {
         action: onRWTHOnlineLoginPage
     },
     videoAGAutoLoginForward: {
-        regex: /^video\.fsmpi\.rwth-aachen\.de\/[^\/]+\/\d+$/,
+        regex: /^(video\.fsmpi\.rwth-aachen\.de|rwth\.video)\/[^\/]+\/\d+$/,
         action: onVideoAG,
         allowSubsequent: true
     },
@@ -62,6 +62,7 @@ async function main() {
     let url = location.href.replace(/https?\:\/\//, "");
     if(url.endsWith("/"))
         url = url.substring(0, url.length - 1);
+    console.log("Url:", url)
 
     for(let [name, info] of Object.entries(functions)) {
         if(!url.match(info.regex)) continue;
