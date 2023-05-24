@@ -1,4 +1,9 @@
 let functions = {
+    registerActiveTab: {
+        regex: /.*/,
+        action: registerActiveTab,
+        allowSubsequent: true
+    },
     moodleStartAutoForward: {
         regex: /^moodle\.rwth-aachen\.de$/,
         action: onMoodleLoginPage
@@ -112,6 +117,23 @@ async function cacheCourses(sesskey) {
 
     // await browser.runtime.sendMessage({ command: "removeStorage", storage: "local", name: "courseCache" });
     await browser.runtime.sendMessage({ command: "setStorage", storage: "local", data: { courseCache: resp[0].data.courses } })
+}
+
+function registerActiveTab() {
+    function setActive() {
+        browser.runtime.sendMessage({ command: "setActiveTab", data: { url: location.href } });
+    }
+    function unsetActive() {
+        browser.runtime.sendMessage({ command: "unsetActiveTab", data: { url: location.href } });
+    }
+    function onChange() {
+        if(document.visibilityState == "visible") setActive();
+        else unsetActive();
+    }
+    onChange();
+    document.onvisibilitychange = onChange;
+    window.onfocus = setActive;
+    window.onblur = unsetActive;
 }
 
 function onMoodleLoginPage() {

@@ -184,11 +184,10 @@ async function tryFetchSesskey() {
 
 
 async function tryLoadVideoDownloads() {
-    const tab = (await browser.tabs.query({ active: true, windowId: (await browser.windows.getLastFocused()).id }))[0];
-    if(!tab.url) return;
+    const tab = await browser.runtime.sendMessage({ command: "getActiveTab" });
+    if(!tab || !tab.url) return;
     const info = ((await browser.storage.local.get("videoInfos")).videoInfos || {})[tab.url];
     if(!info) return;
-    console.log("Tab video info:", info);
 
     const track1080p = info.tracks.find(t => t.resolution === "1920x1080");
     const track720p = info.tracks.find(t => t.resolution === "1280x720");
