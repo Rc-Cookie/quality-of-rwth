@@ -1,6 +1,11 @@
 const browser = chrome;
 
 let functions = {
+    registerActiveTab: {
+        regex: /.*/,
+        action: registerActiveTab,
+        allowSubsequent: true
+    },
     moodleStartAutoForward: {
         regex: /^moodle\.rwth-aachen\.de$/,
         action: onMoodleLoginPage
@@ -10,7 +15,7 @@ let functions = {
         action: onRWTHOnlineLoginPage
     },
     videoAGAutoLoginForward: {
-        regex: /^video\.fsmpi\.rwth-aachen\.de\/[^\/]+\/\d+$/,
+        regex: /^(video\.fsmpi\.rwth-aachen\.de|rwth\.video)\/[^\/]+\/\d+$/,
         action: onVideoAG,
         allowSubsequent: true
     },
@@ -22,7 +27,7 @@ let functions = {
         regex: /^oauth\.campus\.rwth-aachen\.de\/manage\/?\?q=verify/,
         action: onAutoAuthorize,
         allowSubsequent: true,
-        setting: "undefined" // Always run to store the known apps
+        setting: "" // Always run to store the known apps
     },
     autoCloseAfterAuthorize: {
         regex: /^oauth\.campus\.rwth-aachen\.de\/manage\/?\?.*q=authorized/,
@@ -46,10 +51,15 @@ let functions = {
         regex: /^moodle\.rwth-aachen.de\/mod\/url\/view\.php\?(?!stay=true)/,
         action: onURLResource
     },
-    loadVideoData: {
-        regex: /^moodle\.rwth-aachen\.de\/mod\/lti\/view\.php/,
-        action: onVideo
-    }
+    searchOpencastVideo: {
+        regex: /^moodle/,
+        action: searchOpencastVideo,
+        allowSubsequent: true
+    },
+    // loadVideoData: {
+    //     regex: /^moodle\.rwth-aachen\.de\/mod\/lti\/view\.php/,
+    //     action: onVideo
+    // }
 }
 
 main();
@@ -59,6 +69,7 @@ async function main() {
     let url = location.href.replace(/https?\:\/\//, "");
     if(url.endsWith("/"))
         url = url.substring(0, url.length - 1);
+    console.log("Url:", url)
 
     for(let [name, info] of Object.entries(functions)) {
         if(!url.match(info.regex)) continue;
@@ -104,10 +115,27 @@ async function cacheCourses(sesskey) {
         }])
     }).then(r => r.json());
     if(resp[0].error)
-        return console.error("Failed to load courses");
+        return console.error("Failed to load courses", resp[0].exception);
 
     // await browser.runtime.sendMessage({ command: "removeStorage", storage: "local", name: "courseCache" });
     await browser.runtime.sendMessage({ command: "setStorage", storage: "local", data: { courseCache: resp[0].data.courses } })
+}
+
+function registerActiveTab() {
+    function setActive() {
+        browser.runtime.sendMessage({ command: "setActiveTab", data: { url: location.href } });
+    }
+    function unsetActive() {
+        browser.runtime.sendMessage({ command: "unsetActiveTab", data: { url: location.href } });
+    }
+    function onChange() {
+        if(document.visibilityState == "visible") setActive();
+        else unsetActive();
+    }
+    onChange();
+    document.onvisibilitychange = onChange;
+    window.onfocus = setActive;
+    window.onblur = unsetActive;
 }
 
 function onMoodleLoginPage() {
@@ -149,7 +177,7 @@ async function onAutoAuthorize() {
 }
 
 function onAuthorizeDone() {
-    browser.runtime.sendMessage({ command: "closeActiveTabAndReload"});
+    browser.runtime.sendMessage({ command: "closeThisTabAndReload"});
 }
 
 function onPDFAnnotator() {
@@ -186,8 +214,54 @@ function onURLResource() {
     a.click();
 }
 
-function onVideo() {
-    // TODO
+async function searchOpencastVideo() {
+    const iframe = document.getElementsByTagName("iframe")[0];
+    if(!iframe) return;
+    if(iframe.className === "ocplayer") {
+        return await loadVideoData(iframe.getAttribute("data-framesrc").match(/play\/(.{36})/)[1]);
+    }
+    if(iframe.id === "contentframe" && location.href.includes("mod/lti/view.php")) {
+        const id = location.search.match(/id=(\d+)/)[1];
+        console.log("Video ID:", id);
+
+        const uuid = (await fetch("https://moodle.rwth-aachen.de/mod/lti/launch.php?id="+id).then(r => r.text())).match(/name\s*=\s*"custom_id"\s*value\s*=\s*"(.{36})"/)[1];
+
+        return await loadVideoData(uuid);
+    }
+}
+
+async function loadVideoData(uuid) {
+    console.log("Video UUID:", uuid);
+    const info = await getVideoInfo(uuid);
+
+    let videoInfos = (await browser.runtime.sendMessage({ command: "getStorage", storage: "local", name: "videoInfos" })).videoInfos || {};
+    videoInfos[location.href] = info;
+    if(Object.keys(videoInfos).length > 10) {
+        videoInfos = Object.entries(videoInfos).sort(([_1,a],[_2,b]) => b.time - a.time);
+        videoInfos.length = 10;
+        videoInfos = videoInfos.reduce((obj, [k,v]) => ({ ...obj, [k]: v }), {});
+    }
+    await browser.runtime.sendMessage({ command: "setStorage", storage: "local", data: { videoInfos: videoInfos } })
+}
+
+async function getVideoInfo(uuid) {
+    let data = (await fetch("https://engage.streaming.rwth-aachen.de/search/episode.json?id="+uuid, { credentials: "include" }).then(r => r.json()))["search-results"];
+
+    while(data.total === 0) {
+        // For whatever reason this happens sometimes, but refreshing fixes it... maybe the _=... query parameter is not irrelevant, but it works fine like this so whatever
+        console.log("Video data not received, trying again in 500ms...");
+        await new Promise(r => setTimeout(r, 500));
+        data = (await fetch("https://engage.streaming.rwth-aachen.de/search/episode.json?id="+uuid, { credentials: "include" }).then(r => r.json()))["search-results"];
+    }
+
+    console.log("Video data:", data);
+    const tracks = data.result.mediapackage.media.track;                              
+    return {
+        tracks: tracks.filter(t => t.mimetype === "video/mp4" && t.video.resolution.length >= 8 /* at least 720p */)
+                      .map(t => ({ url: t.url, resolution: t.video.resolution })),
+        stream: (tracks.find(t => t.mimetype === "application/x-mpegURL") || {}).url,
+        time: Date.now()
+    };
 }
 
 
