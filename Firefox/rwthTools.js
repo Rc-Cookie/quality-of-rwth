@@ -67,7 +67,6 @@ async function main() {
     let url = location.href.replace(/https?\:\/\//, "");
     if(url.endsWith("/"))
         url = url.substring(0, url.length - 1);
-    console.log("Url:", url)
 
     for(let [name, info] of Object.entries(functions)) {
         if(!url.match(info.regex)) continue;
@@ -115,7 +114,6 @@ async function cacheCourses(sesskey) {
     if(resp[0].error)
         return console.error("Failed to load courses", resp[0].exception);
 
-    // await browser.runtime.sendMessage({ command: "removeStorage", storage: "local", name: "courseCache" });
     await browser.runtime.sendMessage({ command: "setStorage", storage: "local", data: { courseCache: resp[0].data.courses } })
 }
 
@@ -199,8 +197,9 @@ function onSSO() {
     }
 
     let typed = false;
-    password.addEventListener("keyup", () => typed = true);
+    password.onkeyup = () => typed = true;
     password.onchange = () => { if(!typed) login.click(); }
+    login.onclick = () => setTimeout(() => login.disabled = true);
 }
 
 function onURLResource() {
