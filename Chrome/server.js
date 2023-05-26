@@ -32,3 +32,20 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // }
     return false;
 });
+
+
+// Does not work in manifest v3, at least not from JS
+
+
+
+    
+        
+
+
+    
+        
+
+    
+    
+    
+

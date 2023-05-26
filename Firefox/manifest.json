@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "Quality of RWTH",
-    "version": "1.3.2",
+    "version": "1.4.0",
 
     "description": "Makes RWTH websites more enjoyable",
     
@@ -9,7 +9,9 @@
         "*://*.rwth-aachen.de/*",
         "*://*.rwth.video/*",
         "storage",
-        "downloads"
+        "downloads",         // Chrome: "downloads"
+        "webRequest",        // Chrome:
+        "webRequestBlocking" // Chrome:
     ],
 
     "content_scripts": [

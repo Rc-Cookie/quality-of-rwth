@@ -30,3 +30,20 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // }
     return false;
 });
+
+
+// Re-enable caching                                                                                                                                // Chrome: // Does not work in manifest v3, at least not from JS
+let cacheMoodlePages = false;                                                                                                                       // Chrome:
+browser.storage.sync.get("cacheMoodlePages").then(s => cacheMoodlePages = s.cacheMoodlePages !== false);                                            // Chrome:
+browser.storage.sync.onChanged.addListener(change => {                                                                                              // Chrome:
+    if(change.cacheMoodlePages)                                                                                                                     // Chrome:
+        cacheMoodlePages = change.cacheMoodlePages.newValue !== false;                                                                              // Chrome:
+})                                                                                                                                                  // Chrome:
+browser.webRequest.onHeadersReceived.addListener(details => {                                                                                       // Chrome:
+    if(cacheMoodlePages)                                                                                                                            // Chrome:
+        return { responseHeaders: details.responseHeaders.filter(h => h.name !== "Cache-Control" && h.name !== "Pragma" && h.name !== "Expires") }; // Chrome:
+}, { urls: [                                                                                                                                        // Chrome:
+    "*://moodle.rwth-aachen.de/course/view.php*",                                                                                                   // Chrome:
+    "*://moodle.rwth-aachen.de/my/*",                                                                                                               // Chrome:
+    "*://moodle.rwth-aachen.de/pluginfile.php/*/mod_resource/content"                                                                               // Chrome:
+] }, [ "blocking", "responseHeaders" ]);                                                                                                            // Chrome:

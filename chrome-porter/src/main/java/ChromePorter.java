@@ -25,7 +25,7 @@ public class ChromePorter {
     public void port() throws IOException {
         Files.createDirectories(dst);
 
-        JsonObject manifest = Json.load(src.resolve("manifest.json")).asObject();
+        JsonObject manifest = new JsonObject(Files.readString(src.resolve("manifest.json")).replaceAll("(\\s*).* // Chrome: ?(.*)[\r\n]", "$1$2"));
         if(manifest.getInt("manifest_version") != 3) {
             manifest.put("manifest_version", 3);
             if(manifest.contains("browser_action")) {
