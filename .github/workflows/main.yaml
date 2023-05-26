@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'manifest.json'
+
+jobs:
+  firefox:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Pack Extension
+      id: web-ext-build
+      uses: kewisch/action-web-ext@v1
+      with:
+        cmd: build
+
+#    - name: 'Sign & publish'
+#      id: web-ext-sign
+#      uses: kewisch/action-web-ext@v1
+#      with:
+#        cmd: sign
+#        channel: listed
+#        source: ${{ steps.web-ext-build.outputs.target }}
+#        apiKey: ${{ secrets.FIREFOX_API_KEY }}
+#        apiSecret: ${{ secrets.FIREFOX_CLIENT_SECRET }}
+#
+#    - name: Drop artifacts
+#      uses: actions/upload-artifact@v2
+#      with:
+#        name: 'Firefox Artefacts'
+#        path: ${{ steps.web-ext-sign.outputs.target }}
+  
+  chrome:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Pack Extension
+      uses: TheDoctor0/zip-release@0.4.1
+      with:
+        filename: ./Package.zip
+        exclusions: '.git/* .vscode/* .github/* *.md'
+
+#    - name: Publish to Chrome Webstore
+#      uses: SebastienGllmt/chrome-addon@v3
+#      with:
+#        extension: hhjhbkpidgloeeflpnoajpicjhocbdjk
+#        zip: ./Package.zip
+#        client-id: ${{ secrets.CHROME_CLIENT_ID }}
+#        client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+#        refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+
+    - name: Drop artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: 'Chrome Artifacts'
+        path: ./Package.zip
