@@ -54,6 +54,11 @@ let functions = {
         action: searchOpencastVideo,
         allowSubsequent: true
     },
+    removeChatPopup: {
+        regex: /^moodle/,
+        action: removeChatPopup,
+        allowSubsequent: true
+    }
     // loadVideoData: {
     //     regex: /^moodle\.rwth-aachen\.de\/mod\/lti\/view\.php/,
     //     action: onVideo
@@ -259,6 +264,18 @@ async function getVideoInfo(uuid) {
         stream: (tracks.find(t => t.mimetype === "application/x-mpegURL") || {}).url,
         time: Date.now()
     };
+}
+
+function removeChatPopup() {
+    let page = document.getElementById("page");
+    if(!page) return;
+
+    function hide() {
+        for(const e of page.getElementsByClassName("chat-support-vert"))
+            e.hidden = true;
+    }
+    hide();
+    new MutationObserver(hide).observe(page, { childList: true });
 }
 
 
