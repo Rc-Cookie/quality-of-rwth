@@ -55,12 +55,12 @@ public class ChromePorter {
             String name = p.toString();
             if(name.endsWith(".js")) {
                 String js = Files.readString(p);
-                js = js.replaceAll("(\\s*).* // Chrome: (.*)[\r\n]", "$1$2");
+                js = js.replaceAll("(\\s*).* // Chrome: ?(.*)[\r\n]", "$1$2");
                 Files.writeString(target,"const browser = chrome;\n\n"+js);
             }
             else if(name.endsWith(".html")) {
                 String html = Files.readString(p);
-                html = html.replaceAll("(\\s*).* (?:<!-- Chrome: (.*) -->|/\\* Chrome: (.*) \\*/|// Chrome: (.*))[\r\n]", "$1$2$3$4");
+                html = html.replaceAll("(\\s*).* (?:<!-- Chrome: ?(.*) -->|/\\* Chrome: (.*) \\*/|// Chrome: ?(.*))[\r\n]", "$1$2$3$4");
                 Files.writeString(target, html);
             }
             else if(name.endsWith(".css")) {
