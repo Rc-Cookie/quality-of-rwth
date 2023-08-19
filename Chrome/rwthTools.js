@@ -19,6 +19,10 @@ let functions = {
         action: onVideoAG,
         allowSubsequent: true
     },
+    autoLoginOnCoursePreview: {
+        regex: /^moodle.rwth-aachen.de\/enrol\/index.php/,
+        action: onCoursePreview,
+    },
     autoSelectInstitution: {
         regex: /^oauth\.campus\.rwth-aachen\.de\/login\/shibboleth\/?(\?.*)?$/,
         action: onSelectInstitution
@@ -154,6 +158,10 @@ function onRWTHOnlineLoginPage() {
 function onVideoAG() {
     const a = document.getElementsByClassName("reloadonclose")[0];
     if(a) browser.runtime.sendMessage({ command: "browser.tabs.create", data: { url: a.href } });
+}
+
+function onCoursePreview() {
+    location.href = "https://moodle.rwth-aachen.de/auth/shibboleth/index.php";
 }
 
 async function onSelectInstitution() {
