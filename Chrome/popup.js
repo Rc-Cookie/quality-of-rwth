@@ -10,6 +10,9 @@ const videoStreamingLink = document.getElementById("video-streaming-link")
 
 const footer = document.getElementById("footer");
 const bottomMessage = document.getElementById("bottom-message");
+const searchInput = document.getElementById("search");
+
+let lastSearch = "";
 
 main();
 
@@ -18,6 +21,27 @@ function main() {
     browser.storage.local.onChanged.addListener(onStorageChanged);
     loadCourses();
     tryLoadVideoDownloads();
+
+    // init search
+    searchInput.addEventListener("input", e => {
+        const query = e.target.value.toLowerCase();
+        lastSearch = query;
+        rebuilt();
+    })
+
+    searchInput.addEventListener("keydown", e => {
+        if (e.key === "ArrowDown") {
+            if(listContainer.children.length === 0) return;
+            listContainer.children[2].focus()    
+        }
+    });
+    searchInput.focus();
+}
+    
+async function rebuilt() {
+    const cache = (await browser.storage.local.get("courseCache")).courseCache;
+    if (!cache) loadCourses(true);
+    else buildHTML(cache);
 }
 
 function onStorageChanged(change) {
@@ -85,6 +109,11 @@ async function loadCourses(isRetry) {
 }
 
 function buildHTML(courses) {
+
+    if (lastSearch) {
+        courses = courses.filter(course => course.shortname.toLowerCase().includes(lastSearch));
+    }
+
     listContainer.replaceChildren();
     listArea.hidden = false;
 
@@ -138,22 +167,6 @@ function buildHTML(courses) {
 
         a.appendChild(div);
         listContainer.appendChild(a);
-
-        // const imgSrc = course.courseimage;
-        // if(imgSrc.startsWith("data:image/svg+xml;base64,")) {
-        //     console.log("Adding svg")
-        //     const span = document.createElement("span");
-        //     span.innerHTML = atob(imgSrc.substring(26));
-        //     span.children[0].style.width = "100%";
-        //     list.appendChild(span);
-        // }
-        // else if(imgSrc.startsWith("http")) {
-        //     console.log("Adding image");
-        //     const img = document.createElement("img");
-        //     img.src = imgSrc;
-        //     img.style.width = "100%";
-        //     list.appendChild(img);
-        // }
     }
 }
 

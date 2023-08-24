@@ -74,12 +74,25 @@
       .dropdown:hover .dropdown-content {
         display: block;
       }
+
+      .search-input{
+        background: #53525d;
+        border: none;
+        padding: 5px 8px;
+        width: 100%;
+        border-radius: 5px;
+        color: whitesmoke
+      }
+      .search-input:active {
+        border: none;
+      }
     </style>
   </head>
 
   <body>
     <div style="width: calc(100% - 2*8px)">
       <div class="base-item item title-item">Moodle courses</div>
+      <input type="search" placeholder="Search Courses" class="search-input" id="search"/>
 
       <div id="course-list" hidden>
         <hr>
