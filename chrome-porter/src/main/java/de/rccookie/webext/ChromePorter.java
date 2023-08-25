@@ -1,3 +1,5 @@
+package de.rccookie.webext;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -77,20 +79,23 @@ public class ChromePorter {
         parser.addDefaults();
         parser.setName("Web Extension Chrome Porter");
         parser.setDescription("""
-                        Usage: chrome-porter [options] [srcDir dstDir|rootDir|<none>]
+                        Usage: chrome-porter [options] [rootDir|srcDir dstDir]
 
                         Converts a web extension created for Firefox to one for Chrome.
                         Inject chrome specific implementation in HTML/CSS/JS via end-of-line comments with syntax
                             <some Firefox specific code> <comment start> Chrome: <Chrome specific code>[ <comment end>]<end of line>
                         Note that the spaces are mandatory. Example in HTML:
                         <div browser="firefox"> <!-- Chrome: <div browser="chrome"> -->
+
+                        If a single directory is given, the subdirectory 'Firefox' is used as source and the subdirectory 'Chrome' as destination directory.
                         """);
         args = parser.parse(args).getArgs();
 
         String src, dst;
         if(args.length == 0) {
-            src = "Firefox";
-            dst = "Chrome";
+            System.err.println("No base directory specified.\n");
+            parser.showHelp();
+            return;
         }
         else if(args.length == 1) {
             src = args[0] + "/Firefox";
