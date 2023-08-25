@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Quality of RWTH",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "description": "Makes RWTH websites more enjoyable",
     "permissions": [
         "*://*.rwth-aachen.de/*",
@@ -25,6 +25,14 @@
     },
     "options_ui": {
         "page": "options.html"
+    },
+    "commands": {
+        "_execute_action": {
+            "suggested_key": {
+                "default": "Alt+R",
+                "mac": "MacCtrl+R"
+            }
+        }
     },
     "action": {
         "default_icon": "icons/htwr.png",

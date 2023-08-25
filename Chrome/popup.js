@@ -12,7 +12,7 @@ const footer = document.getElementById("footer");
 const bottomMessage = document.getElementById("bottom-message");
 const searchInput = document.getElementById("search");
 
-let lastSearch = "";
+let search = "";
 
 main();
 
@@ -24,18 +24,34 @@ function main() {
     
     // init search
     searchInput.addEventListener("input", e => {
-        const query = e.target.value.toLowerCase();
-        lastSearch = query;
+        const query = e.target.value;
+        search = query;
         rebuilt();
     })
 
     searchInput.addEventListener("keydown", e => {
-        if (e.key === "ArrowDown") {
-            if(listContainer.children.length === 0) return;
-            listContainer.children[2].focus()    
+        if(e.key === "ArrowDown") {
+            if(listContainer.childElementCount !== 0)
+                listContainer.children[0].focus();   
+        }
+        else if(e.key === "ArrowUp") {
+            if(listContainer.childElementCount !== 0)
+                listContainer.children[listContainer.childElementCount-1].focus();
         }
     });
-    searchInput.focus();
+    searchInput.addEventListener("keyup", e => {
+        if(e.key === "Enter") {
+            if(search && listContainer.childElementCount === 1)
+                listContainer.children[0].click();
+            else if(listContainer.childElementCount !== 0)
+                listContainer.children[0].focus();   
+        }
+    });
+
+    document.onkeydown = e => {
+        searchInput.focus();
+        searchInput.dispatchEvent(new KeyboardEvent("keydown", { "key": e.key }))
+    }
 }
 
 async function rebuilt() {
@@ -105,27 +121,40 @@ async function loadCourses(isRetry) {
             console.error("Unexpected error:", resp[0].exception);
         }
         footer.hidden = false;
+        // if(listContainer.childElementCount === 0)
+        //     searchInput.hidden = true;
     }
 }
 
 function buildHTML(courses) {
-    if (lastSearch) {
-        courses = courses.filter(course => course.shortname.toLowerCase().includes(lastSearch));
+
+    let shownCourses;
+    if(search) {
+        shownCourses = courses.filter(searchMatch);
+        shownCourses.sort((a,b) => searchMatch(a) - searchMatch(b));
     }
+    else shownCourses = courses;
+    
+    searchInput.hidden = false;
 
     listContainer.replaceChildren();
     listArea.hidden = false;
 
-    for(const i in courses) {
-        const course = courses[i];
+    for(const i in shownCourses) {
+        const course = shownCourses[i];
 
         async function updateCache() {
             if((await browser.storage.sync.get("courseOrder")).courseOrder === "name") return;
             // Cache that this course is now most likely on top
             let newCache = [];
-            newCache[0] = courses[i];
-            for(let j=1; j<courses.length; j++)
-                newCache[j] = courses[j<=i ? j-1 : j];
+            newCache[0] = course;
+
+            // Cache actual courses, not shown courses
+            let offset = -1;
+            for(let j=1; j<courses.length; j++) {
+                if(courses[j] === shownCourses[i]) offset = 0;
+                newCache[j] = courses[j + offset];
+            }
             cacheCourses(newCache);
         }
 
@@ -142,31 +171,52 @@ function buildHTML(courses) {
 
         const div = document.createElement("div");
         div.className = "base-item item clickable-item";
+        div.tabIndex = -1; // Required to be able to be focused
         div.onclick = e => {
             e.preventDefault();
             updateCache();
             if(false) // Chrome popups don't support loading a website into the popup - at least not out of the box
                 document.location.href = course.viewurl;
-            else {
-                browser.tabs.update({ url: course.viewurl });
+            else browser.storage.sync.get("openInNewTab").then(s => {
+                if(s.openInNewTab)
+                    browser.tabs.create({ url: course.viewurl });
+                else browser.tabs.update({ url: course.viewurl });
                 window.close();
-            }
+            });
         };
         div.onauxclick = e => {
             if(e.button !== 1) return;
             e.preventDefault();
 
             updateCache();
-            browser.tabs.create({ url: course.viewurl });
-            window.close();
+            browser.storage.sync.get("openInNewTab").then(s => {
+                if(s.openInNewTab) // Inverse of regular action
+                    browser.tabs.update({ url: course.viewurl });
+                else browser.tabs.create({ url: course.viewurl });
+                window.close();
+            });
         }
+        div.onkeydown = e => {
+            if(e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.stopPropagation();
+                listContainer.children[([...listContainer.children].indexOf(a) + (e.key === "ArrowDown" ? 1 : -1) + listContainer.childElementCount) % listContainer.childElementCount].focus();
+            }
+            else if(e.key == "Enter" || e.key == " ") {
+                e.stopPropagation();
+                div.dispatchEvent(new MouseEvent("click", { ctrlKey: e.ctrlKey }));
+            }
+        };
         div.appendChild(before);
         div.appendChild(b);
         div.appendChild(after);
 
         a.appendChild(div);
-        listContainer.appendChild(a);
+        a.onclick = div.onclick;
+        a.onauxclick = div.onauxclick;
+        a.onkeydown = div.onkeydown;
+        a.onfocus = () => div.focus();
 
+        listContainer.appendChild(a);
     }
 }
 
@@ -215,4 +265,35 @@ async function tryLoadVideoDownloads() {
     videoStreamingLink.onclick = () => navigator.clipboard.writeText(info.stream);
 
     downloadArea.hidden = false;
+}
+
+
+
+function searchMatch(item) {
+    item = item.shortname ? item.shortname : item;
+
+    const lowerItem = item.toLowerCase();
+
+    let start = 0;
+    let quality = 1; // Higher is worse
+    for(let i=0; i<search.length; i++) {
+        let char = search.charAt(i);
+        let index;
+
+        // Upper case characters only match upper case, lower case matches both upper and lower case chars
+        if(char === char.toLowerCase())
+            index = lowerItem.indexOf(char, start);
+        else index = item.indexOf(char, start);
+
+        if(index < start) return false; // Not found
+
+        quality += index - start; // Add number of characters skipped
+        if(item.charAt(index) != char) // char is lower case but matched upper case
+            quality++;
+
+        start = index + 1;
+    }
+    if(start != item.length) quality += 5; // If you type the full word it should be a better match
+
+    return quality;
 }
