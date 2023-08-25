@@ -55,6 +55,10 @@
       .clickable-item:active {
         background-color: #71707a; /* Chrome: background-color: #5f5f63; */
       }
+      .clickable-item:focus {
+        background-color: #71707a; /* Chrome: background-color: #5f5f63; */
+        outline: none;
+      }
 
       .dropdown {
         display: inline-block;
@@ -83,8 +87,9 @@
         border-radius: 5px;
         color: whitesmoke
       }
-      .search-input:active {
+      .search-input:focus {
         border: none;
+        outline: none;
       }
     </style>
   </head>
@@ -92,7 +97,9 @@
   <body>
     <div style="margin: 8px"> <!-- Chrome: <div style="width: calc(100% - 2*8px)"> -->
       <div class="base-item item title-item">Moodle Courses</div>
-      <input type="search" placeholder="Search Courses" class="search-input" id="search"/>
+
+      <input id="search" type="search" placeholder="Start typing to search" class="search-input" hidden/>
+
       <div id="course-list" hidden>
         <hr>
         <div id="course-list-container">

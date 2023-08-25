@@ -6,7 +6,12 @@ let functions = {
     },
     moodleStartAutoForward: {
         regex: /^moodle\.rwth-aachen\.de$/,
-        action: onMoodleLoginPage
+        action: moodleLogin
+    },
+    moodleGuestDashboardLogin: {
+        regex: /^moodle\.rwth-aachen\.de\/my\/?/,
+        action: onGuestDashboard,
+        allowSubsequent: true
     },
     rwthOnlineLoginAutoForward: {
         regex: /^online\.rwth-aachen\.de\/RWTHonline\/ee\/ui\/ca2\/app\/desktop\/#\/login$/,
@@ -19,7 +24,7 @@ let functions = {
     },
     autoLoginOnCoursePreview: {
         regex: /^moodle.rwth-aachen.de\/enrol\/index.php/,
-        action: onCoursePreview,
+        action: moodleLogin,
     },
     autoSelectInstitution: {
         regex: /^oauth\.campus\.rwth-aachen\.de\/login\/shibboleth\/?(\?.*)?$/,
@@ -143,8 +148,10 @@ function registerActiveTab() {
     window.onblur = unsetActive;
 }
 
-function onMoodleLoginPage() {
-    location.href = "https://moodle.rwth-aachen.de/auth/shibboleth/index.php";
+function onGuestDashboard() {
+    const h = document.getElementsByTagName("h1")[0];
+    if(h && h.innerText.match(/\((?:Gast|Guest)\)/)) // When logging in, its first an <h2>. If you access the dashboard when already logged in its an <h1> for whatever reason
+        moodleLogin();
 }
 
 function onRWTHOnlineLoginPage() {
@@ -156,10 +163,6 @@ function onRWTHOnlineLoginPage() {
 function onVideoAG() {
     const a = document.getElementsByClassName("reloadonclose")[0];
     if(a) browser.runtime.sendMessage({ command: "browser.tabs.create", data: { url: a.href } });
-}
-
-function onCoursePreview() {
-    location.href = "https://moodle.rwth-aachen.de/auth/shibboleth/index.php";
 }
 
 async function onSelectInstitution() {
@@ -286,6 +289,11 @@ function removeChatPopup() {
     new MutationObserver(hide).observe(page, { childList: true });
 }
 
+
+
+function moodleLogin() {
+    location.href = "https://moodle.rwth-aachen.de/auth/shibboleth/index.php";
+}
 
 function when(condition) {
     const poll = resolve => {

@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "Quality of RWTH",
-    "version": "1.6.0",
+    "version": "1.7.0.0",
 
     "description": "Makes RWTH websites more enjoyable",
     
@@ -34,6 +34,14 @@
         "default_icon": "icons/htwr.png",
         "browser_style": true,
         "default_popup": "popup.html"
+    },
+    "commands": {
+        "_execute_browser_action": {
+            "suggested_key": {
+                "default": "Alt+R",
+                "mac": "MacCtrl+R"
+            }
+        }
     },
 
     "browser_specific_settings": {
