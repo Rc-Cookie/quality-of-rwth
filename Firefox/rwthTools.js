@@ -67,6 +67,11 @@ let functions = {
         regex: /^moodle/,
         action: removeChatPopup,
         allowSubsequent: true
+    },
+    acceptCookies: {
+        regex: /^moodle/,
+        action: acceptCookies,
+        allowSubsequent: true
     }
     // loadVideoData: {
     //     regex: /^moodle\.rwth-aachen\.de\/mod\/lti\/view\.php/,
@@ -287,6 +292,11 @@ function removeChatPopup() {
     }
     hide();
     new MutationObserver(hide).observe(page, { childList: true });
+}
+
+function acceptCookies() {
+    const ok = document.getElementById("cookie-confirm-btn");
+    if(ok) ok.click();
 }
 
 
