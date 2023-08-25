@@ -21,7 +21,7 @@ function main() {
     browser.storage.local.onChanged.addListener(onStorageChanged);
     loadCourses();
     tryLoadVideoDownloads();
-
+    
     // init search
     searchInput.addEventListener("input", e => {
         const query = e.target.value.toLowerCase();
@@ -37,7 +37,7 @@ function main() {
     });
     searchInput.focus();
 }
-    
+
 async function rebuilt() {
     const cache = (await browser.storage.local.get("courseCache")).courseCache;
     if (!cache) loadCourses(true);
@@ -109,7 +109,6 @@ async function loadCourses(isRetry) {
 }
 
 function buildHTML(courses) {
-
     if (lastSearch) {
         courses = courses.filter(course => course.shortname.toLowerCase().includes(lastSearch));
     }
@@ -167,6 +166,7 @@ function buildHTML(courses) {
 
         a.appendChild(div);
         listContainer.appendChild(a);
+
     }
 }
 
