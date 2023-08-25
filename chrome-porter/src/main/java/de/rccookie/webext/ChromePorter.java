@@ -35,6 +35,13 @@ public class ChromePorter {
                 manifest.remove("browser_action");
                 manifest.remove("browser_specific_settings");
             }
+            if(manifest.contains("commands")) {
+                JsonObject commands = manifest.getObject("commands");
+                if(commands.contains("_execute_browser_action")) {
+                    commands.put("_execute_action", commands.get("_execute_browser_action"));
+                    commands.remove("_execute_browser_action");
+                }
+            }
             if(manifest.contains("background") && manifest.getObject("background").contains("scripts")) {
                 String[] scripts = manifest.getElement("background").get("scripts").as(String[].class);
                 manifest.getObject("background").remove("scripts");
