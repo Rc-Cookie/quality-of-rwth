@@ -5,11 +5,11 @@ import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-import com.github.rccookie.json.Json;
-import com.github.rccookie.json.JsonObject;
-import com.github.rccookie.util.ArgsParser;
-import com.github.rccookie.util.Arguments;
-import com.github.rccookie.util.Utils;
+import de.rccookie.json.Json;
+import de.rccookie.json.JsonObject;
+import de.rccookie.util.ArgsParser;
+import de.rccookie.util.Arguments;
+import de.rccookie.util.Utils;
 
 public class ChromePorter {
 

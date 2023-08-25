@@ -16,21 +16,21 @@
 
   <repositories>
     <repository>
-      <id>github</id>
-      <url>https://maven.pkg.github.com/rc-cookie/*</url>
+      <id>rccookie.de</id>
+      <url>https://mvn.repo.rccookie.de/releases</url>
     </repository>
   </repositories>
 
   <dependencies>
     <dependency>
-      <groupId>com.github.rccookie</groupId>
+      <groupId>de.rccookie</groupId>
       <artifactId>util</artifactId>
-      <version>1.13.7.6</version>
+      <version>1.18.0.0</version>
     </dependency>
     <dependency>
-      <groupId>com.github.rccookie</groupId>
+      <groupId>de.rccookie</groupId>
       <artifactId>json</artifactId>
-      <version>4.9.0</version>
+      <version>5.2.1</version>
     </dependency>
   </dependencies>
 
