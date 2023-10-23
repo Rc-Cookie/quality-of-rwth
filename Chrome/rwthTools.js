@@ -26,11 +26,20 @@ let functions = {
     },
     autoLoginOnCoursePreview: {
         regex: /^moodle.rwth-aachen.de\/enrol\/index.php/,
-        action: moodleLogin,
+        action: moodleLogin
+    },
+    autoGitLoginForward: {
+        regex: /^git\.rwth-aachen\.de\/users\/sign_in\/?$/,
+        action: onGitLoginPage
     },
     autoSelectInstitution: {
         regex: /^oauth\.campus\.rwth-aachen\.de\/login\/shibboleth\/?(\?.*)?$/,
         action: onSelectInstitution
+    },
+    autoSelectGitInstitution: {
+        regex: /^git\.rwth-aachen\.de\/shibboleth-ds\/?(\?.*)?$/,
+        action: onSelectGitInstitution,
+        setting: "autoSelectInstitution"
     },
     autoAuthorize: {
         regex: /^oauth\.campus\.rwth-aachen\.de\/manage\/?\?q=verify/,
@@ -45,6 +54,11 @@ let functions = {
     ssoAutoSubmit: {
         regex: /^sso\.rwth-aachen\.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
         action: onSSO,
+        allowSubsequent: true
+    },
+    autoMailLoginSubmit: {
+        regex: /^mail\.rwth-aachen\.de\/owa\/auth\/logon\.aspx/,
+        action: onMailLogin,
         allowSubsequent: true
     },
     searchSessionKey: {
@@ -172,9 +186,38 @@ function onVideoAG() {
     if(a) browser.runtime.sendMessage({ command: "browser.tabs.create", data: { url: a.href } });
 }
 
+async function onGitLoginPage() {
+    if((await browser.storage.sync.get("rememberMe")).rememberMe !== false) {
+        const box = document.getElementById("remember_me_omniauth");
+        if(box) box.checked = true;
+    }
+    document.getElementById("oauth-login-saml").click();
+}
+
 async function onSelectInstitution() {
     const index = (await browser.storage.sync.get("intitution")).institution == "jülich" ? 1 : 0;
     document.getElementsByClassName("row")[0].children[index].getElementsByTagName("a")[0].click();
+}
+
+async function onSelectGitInstitution() {
+    const select = document.getElementById("idpSelectSelector");
+    if(!select) return;
+
+    let institution = (await browser.storage.sync.get("intitution")).institution;
+    if(!institution) institution = "rwth";
+
+    for(let i=0; i<select.options.length; i++) {
+        if(select.options[i].text.toLowerCase().includes(institution)) {
+            select.value = select.options[i].value;
+            break;
+        }
+    }
+
+    const durations = document.getElementsByClassName("IdPSelectautoDispatchTile");
+    if(durations)
+        durations[durations.length-1].children[0].click();
+
+    document.getElementById("idpSelectListButton").click();
 }
 
 async function onAutoAuthorize() {
@@ -208,21 +251,40 @@ function onPDFAnnotator() {
 }
 
 function onSSO() {
-    let username = document.getElementById("username");
-    let password = document.getElementById("password");
-    let login = document.getElementById("login");
+    onAutoSubmitPassword(
+        document.getElementById("username"),
+        document.getElementById("password"),
+        document.getElementById("login")
+    );
+}
 
-    if(!(username && password && login)) return;
+function onMailLogin() {
+    onAutoSubmitPassword(
+        document.getElementById("username"),
+        document.getElementById("password"),
+        document.getElementsByClassName("signinbutton")[0]
+    );
+}
+
+function onAutoSubmitPassword(username, password, submit) {
+    if(!(username && password && submit)) return;
 
     if(username.value !== "" && password.value !== "") {
         console.log("Password already entered");
-        return login.click();
+        return submit.click();
     }
 
-    let typed = false;
-    password.onkeyup = () => typed = true;
-    password.onchange = () => { if(!typed) login.click(); }
-    login.onclick = () => setTimeout(() => login.disabled = true);
+    let oldVal = "";
+    let listener = () => {
+        if(password.value.length > oldVal.length + 5 && username.value.length >= 8)
+            submit.click();
+        oldVal = password.value;
+    };
+    password.addEventListener("keyup", listener);
+    password.addEventListener("input", listener);
+    password.addEventListener("change", listener);
+
+    submit.addEventListener("click", () => setTimeout(() => submit.disabled = true));
 }
 
 function onURLResource() {
