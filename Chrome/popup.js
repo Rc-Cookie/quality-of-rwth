@@ -3,6 +3,7 @@ const browser = chrome;
 const listArea = document.getElementById("course-list");
 const listContainer = document.getElementById("course-list-container");
 const coursePrefab = document.getElementById("course-prefab");
+coursePrefab.remove();
 
 const downloadArea = document.getElementById("video-download");
 const video1080p = document.getElementById("video-1080p");
@@ -100,8 +101,12 @@ async function loadCourses(isRetry) {
     // Get session key. Should have been assigned whenever a moodle page was loaded. May be outdated though.
     const sesskey = (await browser.storage.local.get("sesskey")).sesskey;
     if(!sesskey) {
-        bottomMessage.innerText = "You are not logged in.";
-        footer.hidden = false;
+        if(!isRetry)
+            tryFetchSesskey(); // Will re-trigger loadCourses() if successful
+        else {
+            bottomMessage.innerText = "You are not logged in.";
+            footer.hidden = false;
+        }
         return;
     }
 
