@@ -1,5 +1,6 @@
 const listArea = document.getElementById("course-list");
 const listContainer = document.getElementById("course-list-container");
+const coursePrefab = document.getElementById("course-prefab");
 
 const downloadArea = document.getElementById("video-download");
 const video1080p = document.getElementById("video-1080p");
@@ -10,16 +11,21 @@ const footer = document.getElementById("footer");
 const bottomMessage = document.getElementById("bottom-message");
 const searchInput = document.getElementById("search");
 
+let courses = [];
+let allCoursesLoaded = false;
+
 let search = "";
 
 main();
 
 function main() {
     tryLoadCachedCourses();
+    // No need to check for hidden courses change - if you would click on a course to remove it,
+    // the popup window would loose focus and close anyways
     browser.storage.local.onChanged.addListener(onStorageChanged);
     loadCourses();
     tryLoadVideoDownloads();
-    
+
     // init search
     searchInput.addEventListener("input", e => {
         const query = e.target.value;
@@ -52,30 +58,44 @@ function main() {
     }
 }
 
-async function rebuilt() {
-    const cache = (await browser.storage.local.get("courseCache")).courseCache;
-    if (!cache) loadCourses(true);
-    else buildHTML(cache);
-}
-
 function onStorageChanged(change) {
     if(change.sesskey) loadCourses(true);
-    else if(change.courseCache && change.courseCache.newValue)
-        buildHTML(change.courseCache.newValue);
+    // else if(change.courseCache && change.courseCache.newValue) {
+    //     buildHTML();
+    // }
     else if(change.videoInfos)
         tryLoadVideoDownloads();
 }
 
 async function tryLoadCachedCourses() {
     const cache = (await browser.storage.local.get("courseCache")).courseCache;
-    if(cache) return buildHTML(cache);
+    if(!cache) return;
+
+    allCoursesLoaded = (await browser.storage.local.get("courseCacheIsComplete")).courseCacheIsComplete;
+    courses = cache;
+
+    await buildHTML();
 }
 
-async function cacheCourses(courses) {
-    await browser.storage.local.set({ courseCache: courses })
+async function cacheCourses() {
+    await browser.storage.local.set({
+        courseCache: courses,
+        courseCacheIsComplete: allCoursesLoaded
+    });
+}
+
+async function getHiddenCourses() {
+    const storageData = (await browser.storage.sync.get("hiddenCourses")).hiddenCourses;
+    if(!storageData) return { ids: [], data: {} };
+
+    const hidden = [];
+    for(let idStr of Object.keys(storageData))
+        hidden.push(parseInt(idStr));
+    return { ids: hidden, data: storageData };
 }
 
 async function loadCourses(isRetry) {
+    // Get session key. Should have been assigned whenever a moodle page was loaded. May be outdated though.
     const sesskey = (await browser.storage.local.get("sesskey")).sesskey;
     if(!sesskey) {
         bottomMessage.innerText = "You are not logged in.";
@@ -86,8 +106,15 @@ async function loadCourses(isRetry) {
     bottomMessage.innerText = "Refreshing courses...";
     footer.hidden = !isRetry;
 
+    // Load preferences
     const byTime = (await browser.storage.sync.get("courseOrder")).courseOrder !== "name"; // Default to true
+    const hidden = (await getHiddenCourses()).ids;
+    const maxCourses = (await browser.storage.sync.get("maxCourses")).maxCourses || 10;
 
+    // In the first request we request just enough courses so we can fill the popup panel, but we will have
+    // to do another request to get the remaining courses so that we can search for them, too. Ideally one would
+    // just request all courses at once, but Moodle gets incredibly slow for bigger numbers of requested courses
+    // (limit = 10 -> <0.5s, limit = 40 -> ~3s)
     const resp = await fetch("https://moodle.rwth-aachen.de/lib/ajax/service.php?sesskey="+sesskey, {
         method: "post",
         body: JSON.stringify([{
@@ -95,20 +122,77 @@ async function loadCourses(isRetry) {
             methodname: "core_course_get_enrolled_courses_by_timeline_classification",
             args: {
                 offset: 0,
-                limit: (await browser.storage.sync.get("maxCourses")).maxCourses || 10,
-                classification: byTime ? "all" : "inprogress",
+                limit: maxCourses + hidden.length, // Worst case: all hidden courses are before the first maxCourses non-hidden courses
+                classification: byTime ? "all" : "inprogress", // When sorting by name, don't show inactive courses. When sorting by access, old courses should be further down automatically
                 sort: byTime ? "ul.timeaccess desc" : "fullname"
             }
         }])
     }).then(r => r.json());
 
     if(!resp[0].error) {
+
+        // We only loaded the latest courses, but maybe the latest courses were already the latest courses last time.
+        // In that case, we can just replace the first part of the courses (order may have changed) but don't need to
+        // fetch the older courses.
+        let combined = false;
+        if(allCoursesLoaded && courses.length >= resp[0].data.courses.length) {
+            let firstOldCourseIds = courses.map(c => c.id);
+            if(resp[0].data.courses.every(c => firstOldCourseIds.includes(c.id))) {
+                courses.splice(0, resp[0].data.courses.length, ...resp[0].data.courses);
+                combined = true;
+            }
+        }
+
+        if(!combined && resp[0].data.courses.length < maxCourses + hidden.length) {
+            // The user has so few courses that they were already all loaded within the first request, so no second
+            // request is required and the course data is complete.
+            courses = resp[0].data.courses;
+            allCoursesLoaded = true;
+        }
+        if(!combined) {
+            // No cache was present, or the order of the older courses has changed, or new courses were added. We need
+            // to fetch all of the remaining courses to support searching for older courses.
+            
+            // Store the first fetched courses and mark them as incomplete
+            courses = resp[0].data.courses;
+            allCoursesLoaded = false;
+
+            // Fetch the remaining courses asynchronously
+            fetch("https://moodle.rwth-aachen.de/lib/ajax/service.php?sesskey="+sesskey, {
+                method: "post",
+                body: JSON.stringify([{
+                    index: 0,
+                    methodname: "core_course_get_enrolled_courses_by_timeline_classification",
+                    args: {
+                        offset: maxCourses + hidden.length, // We don't need the courses we already got in the first request, but this time no count limit
+                        classification: byTime ? "all" : "inprogress",
+                        sort: byTime ? "ul.timeaccess desc" : "fullname"
+                    }
+                }])
+            }).then(r => r.json()).then(async function (resp2) {
+                if(resp2[0].error) {
+                    // This shouldn't happen, because a similar request already succeded seconds ago
+                    console.error("Unexpected error in second request:", resp2);
+                    return;
+                }
+                // Append the received courses to the course list, which is now complete
+                courses.push(...resp2[0].data.courses);
+                allCoursesLoaded = true;
+
+                // If a search is present, rebuild the html to possibly include the newly loaded courses
+                if(search) await buildHTML();
+                // Cache the complete course list and mark them as complete
+                cacheCourses();
+            });
+        }
+
+        // Show and cache the courses, possibly incomplete
         footer.hidden = true;
-        buildHTML(resp[0].data.courses);
-        cacheCourses(resp[0].data.courses);
+        await buildHTML();
+        cacheCourses();
     }
     else if(!isRetry && (resp[0].exception.errorcode === "servicerequireslogin" || resp[0].exception.errorcode === "invalidsesskey"))
-        tryFetchSesskey();
+        tryFetchSesskey(); // Will re-trigger loadCourses() if successful
     else {
         if(resp[0].exception.errorcode === "servicerequireslogin")
             bottomMessage.innerText = "You are not logged in.";
@@ -124,19 +208,35 @@ async function loadCourses(isRetry) {
     }
 }
 
-function buildHTML(courses) {
+async function buildHTML(message) {
 
-    let shownCourses;
-    if(search) {
-        shownCourses = courses.filter(searchMatch);
-        shownCourses.sort((a,b) => searchMatch(a) - searchMatch(b));
+    const hiddenCourses = await getHiddenCourses();
+    const maxCourses = (await browser.storage.sync.get("maxCourses")).maxCourses || 10;
+
+    // Select, which courses should be shown. If all courses [that match the search term] are hidden,
+    // they will be shown, otherwise only non-hidden courses.
+    let shownCourses = getShownCourses(hiddenCourses.ids, maxCourses);
+    if(shownCourses.length === 0)
+        shownCourses = getShownCourses([], maxCourses);
+
+    // Non-search results will always be complete by design, but when a search term is present,
+    // it is likely that there should also be older courses in the results, which might not yet
+    // be loaded.
+    if(search && !allCoursesLoaded && shownCourses.length < maxCourses) {
+        if(message)
+            bottomMessage.innerText = "Loading older courses | "+message;
+        else bottomMessage.innerText = "Loading older courses...";
+        footer.hidden = false;
     }
-    else shownCourses = courses;
-    
+    else if(message) {
+        bottomMessage.innerText = message;
+        footer.hidden = false;
+    }
+    else footer.hidden = true;
+
     searchInput.hidden = false;
 
     listContainer.replaceChildren();
-    listArea.hidden = false;
 
     for(const i in shownCourses) {
         const course = shownCourses[i];
@@ -144,16 +244,9 @@ function buildHTML(courses) {
         async function updateCache() {
             if((await browser.storage.sync.get("courseOrder")).courseOrder === "name") return;
             // Cache that this course is now most likely on top
-            let newCache = [];
-            newCache[0] = course;
-
-            // Cache actual courses, not shown courses
-            let offset = -1;
-            for(let j=1; j<courses.length; j++) {
-                if(courses[j] === shownCourses[i]) offset = 0;
-                newCache[j] = courses[j + offset];
-            }
-            cacheCourses(newCache);
+            courses.splice(courses.indexOf(course), 1); // Remove current occurrence
+            courses.splice(0, 0, course); // Insert at beginning
+            cacheCourses();
         }
 
         const name = course.shortname;
@@ -164,13 +257,29 @@ function buildHTML(courses) {
         const before = document.createTextNode(name.substring(0, name.indexOf(main)));
         const after = document.createTextNode(name.substring(name.indexOf(main) + main.length));
 
-        const a = document.createElement("a");
+        const a = coursePrefab.cloneNode(true);
+        a.removeAttribute("id");
+        a.removeAttribute("hidden");
         a.href = course.viewurl;
 
-        const div = document.createElement("div");
-        div.className = "base-item item clickable-item";
-        div.tabIndex = -1; // Required to be able to be focused
-        div.onclick = e => {
+        const labelDiv = a.getElementsByClassName("course-label")[0];
+        labelDiv.replaceChildren(before, b, after);
+
+        const hideButton = a.getElementsByClassName("hide-button")[0];
+        if(hiddenCourses.ids.includes(course.id)) {
+            hideButton.remove();
+            labelDiv.style.color = "#8c8b94";
+        }
+        else hideButton.onclick = async function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            hiddenCourses.data[course.id+""] = name;
+            await browser.storage.sync.set({ hiddenCourses: hiddenCourses.data });
+            await buildHTML("Manage hidden courses in the extension settings");
+        }
+
+        const outerDiv = a.getElementsByTagName("div")[0];
+        outerDiv.onclick = e => {
             e.preventDefault();
             updateCache();
             if(e.ctrlKey) // Chrome: if(false) // Chrome popups don't support loading a website into the popup - at least not out of the box
@@ -182,7 +291,7 @@ function buildHTML(courses) {
                 window.close();
             });
         };
-        div.onauxclick = e => {
+        outerDiv.onauxclick = e => {
             if(e.button !== 1) return;
             e.preventDefault();
 
@@ -194,7 +303,7 @@ function buildHTML(courses) {
                 window.close();
             });
         }
-        div.onkeydown = e => {
+        outerDiv.onkeydown = e => {
             if(e.key === "ArrowDown" || e.key === "ArrowUp") {
                 e.stopPropagation();
                 listContainer.children[([...listContainer.children].indexOf(a) + (e.key === "ArrowDown" ? 1 : -1) + listContainer.childElementCount) % listContainer.childElementCount].focus();
@@ -204,18 +313,27 @@ function buildHTML(courses) {
                 div.dispatchEvent(new MouseEvent("click", { ctrlKey: e.ctrlKey }));
             }
         };
-        div.appendChild(before);
-        div.appendChild(b);
-        div.appendChild(after);
 
-        a.appendChild(div);
-        a.onclick = div.onclick;
-        a.onauxclick = div.onauxclick;
-        a.onkeydown = div.onkeydown;
-        a.onfocus = () => div.focus();
+        a.onclick = outerDiv.onclick;
+        a.onauxclick = outerDiv.onauxclick;
+        a.onkeydown = outerDiv.onkeydown;
+        a.onfocus = () => outerDiv.focus();
 
         listContainer.appendChild(a);
     }
+}
+
+function getShownCourses(hidden, maxCount) {
+    let shownCourses;
+    if(search) {
+        shownCourses = courses.filter(searchMatch);
+        shownCourses.sort((a,b) => searchMatch(a) - searchMatch(b));
+    }
+    else shownCourses = [...courses]; // Create a copy, we might want to truncate it
+
+    shownCourses = shownCourses.filter(c => !hidden.includes(c.id)); // Exclude hidden courses
+    shownCourses.length = Math.min(shownCourses.length, maxCount); // Never show more courses than set in preferences, also not in search
+    return shownCourses;
 }
 
 function getMainName(name) {

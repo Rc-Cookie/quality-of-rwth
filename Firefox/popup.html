@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"/>
     <!-- <link rel="stylesheet" href="popup.css" /> -->
     <!-- For some reason the external stylesheet doesn't load in private mode, but this works -->
     <style>
@@ -75,6 +76,10 @@
         box-shadow: 0px 10px 10px 0px rgba(0,0,0,0.4);
       }
 
+      .course-label {
+        padding-right: 20px;
+      }
+
       .dropdown:hover .dropdown-content {
         display: block;
       }
@@ -92,6 +97,26 @@
         outline: none;
       }
 
+      .hide-button {
+        background-color: transparent;
+        border-style: none;
+        border-radius: 3px;
+        border-color: white;
+        text-align: center;
+        margin: -4px -4px 0 0;
+        padding: 4px 4px 1px 4px;
+        color: whitesmoke;
+        float: right;
+        height: 100%
+      }
+
+      .hide-button:hover {
+        background-color: #84848d;
+      }
+      .clickable-item:not(:hover) .hide-button {
+        display: none;
+      }
+
       /* Chrome: input[type="search"]::-webkit-search-cancel-button { display: none; } */
     </style>
   </head>
@@ -102,10 +127,17 @@
 
       <input id="search" type="search" placeholder="Start typing to search" class="search-input" hidden/>
 
-      <div id="course-list" hidden>
+      <div id="course-list">
         <hr>
         <div id="course-list-container">
-          <a href="https://google.com"><div class="base-item item clickable-item">My course</div></a>
+          <a href="https://google.com" id="course-prefab">
+            <div class="base-item item clickable-item" tabindex="-1">
+              <button class="hide-button" title="Hide this course from the results">
+                <span class="material-symbols-outlined" style="font-size: 16px; padding-top: -2px;">close</span>
+              </button>
+              <div class="course-label">My course with a name so long it barely fits in a single. . .</div>
+            </div>
+          </a>
         </div>
       </div>
 
