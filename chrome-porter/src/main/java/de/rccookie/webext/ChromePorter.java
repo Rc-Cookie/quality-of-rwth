@@ -5,15 +5,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import de.rccookie.json.Json;
 import de.rccookie.json.JsonObject;
 import de.rccookie.util.ArgsParser;
 import de.rccookie.util.Arguments;
+import de.rccookie.util.Console;
 import de.rccookie.util.Utils;
 
 public class ChromePorter {
+
+    private static final Pattern JS_PATTERN = Pattern.compile("(?:^| )// Chrome: ?(.*)$");
 
     private final Path src, dst;
 
@@ -63,9 +68,25 @@ public class ChromePorter {
             Files.createDirectories(target.getParent());
             String name = p.toString();
             if(name.endsWith(".js")) {
-                String js = Files.readString(p);
-                js = js.replaceAll("(\\s*).* // Chrome: ?(.*)[\r\n]", "$1$2");
-                Files.writeString(target,"const browser = chrome;\n\n"+js);
+                StringBuilder js = new StringBuilder("const browser = chrome;\n\n");
+                int lineNr = 1;
+                for(String line : Files.readAllLines(p)) {
+                    Matcher m = JS_PATTERN.matcher(line);
+                    if(m.find()) {
+                        if(line.indexOf("//") < m.start()
+                           || isBefore(line.indexOf("/*"), m.start())
+                           || (isBefore(line.indexOf('"'), m.start()) && line.lastIndexOf('"') > m.start())
+                           || (isBefore(line.indexOf('\''), m.start()) && line.lastIndexOf('\'') > m.start())
+                           || (isBefore(line.indexOf('`'), m.start()) && line.lastIndexOf('`') > m.start())) {
+                            Console.warn(p + ":" + lineNr + ": found // Chrome: ... that might be within comment or string. Please avoid commenting out replacements (they will still be replaced), and write strings so that the pattern is not literally present.");
+                        }
+                        js.append(" ".repeat(line.length() - line.stripLeading().length())).append(m.group(1));
+                    }
+                    else js.append(line);
+                    js.append("\n");
+                    lineNr++;
+                }
+                Files.writeString(target, js);
             }
             else if(name.endsWith(".html")) {
                 String html = Files.readString(p);
@@ -79,6 +100,10 @@ public class ChromePorter {
             }
             else Files.copy(p, target, StandardCopyOption.REPLACE_EXISTING);
         }
+    }
+
+    private static boolean isBefore(int testIfBefore, int testIfAfter) {
+        return testIfBefore >= 0 && testIfBefore < testIfAfter;
     }
 
     public static void main(String[] args) throws IOException {
@@ -115,5 +140,12 @@ public class ChromePorter {
         else throw new IllegalArgumentException("Expected at most two paths; source and destination directory");
 
         new ChromePorter(Path.of(src), Path.of(dst)).port();
+    }
+
+    private enum State {
+        CODE,
+        SINGLE_LINE_COMMENT,
+        MULTI_LINE_COMMENT,
+        STRING
     }
 }
