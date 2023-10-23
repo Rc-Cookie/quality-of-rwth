@@ -33,7 +33,7 @@ function main() {
     searchInput.addEventListener("input", e => {
         const query = e.target.value;
         search = query;
-        rebuilt();
+        buildHTML();
     })
 
     searchInput.addEventListener("keydown", e => {
@@ -408,13 +408,35 @@ function searchMatch(item) {
             index = lowerItem.indexOf(char, start);
         else index = item.indexOf(char, start);
 
-        if(index < start) return false; // Not found
+        if(index < start) {
+            // Char not found, but allow small numbers as alias for roman numerals.
+            // This version only allows for aliases if the string doesn't have the number
+            // regularly afterwards, but pretty much no courses have digets in their name
+            // so it's ok.
+            if(char === "1") char = "I";
+            else if(char === "2") char = "II";
+            else if(char === "3") char = "III";
+            else if(char === "4") char = "IV";
+            else if(char === "5") char = "V";
+            else if(char === "6") char = "VI";
+            else if(char === "7") char = "VII";
+            else if(char === "8") char = "VIII";
+            else return false; // Not found and not realistic to be an alias for a roman numeral
 
-        quality += index - start; // Add number of characters skipped
-        if(item.charAt(index) != char) // char is lower case but matched upper case
+            // Numeral should match exactly, e.g. 2 shouldn't report on III because it includes II
+            index = start + item.slice(start).search("(^|[^IV])"+char+"([^a-zA-Z]|$)");
+            if(index < start)
+                return false; // Alias also not found
+            else if(index > start || !item.startsWith(char, start)) index++; // Regex matches previous non IV character, which we also have to skip
+
+            // Alias found, continue as usual, but literal digits should match better
+            quality++;
+        }
+        else if(item.charAt(index) != char) // char is lower case but matched upper case
             quality++;
 
-        start = index + 1;
+        quality += index - start; // Add number of characters skipped
+        start = index + char.length; // If replaced by an alias skip all of it
     }
     if(start != item.length) quality += 5; // If you type the full word it should be a better match
 
