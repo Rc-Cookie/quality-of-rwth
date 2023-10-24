@@ -171,7 +171,7 @@ async function loadCourses(isRetry) {
                         return;
                     }
                     // Append the received courses to the course list, which is now complete
-                    courses.splice(resp[0].data.length); // Remove old cache (which should theoretically be identical)
+                    courses.splice(resp[0].data.courses.length); // Remove old cache (which should theoretically be identical)
                     courses.push(...resp2[0].data.courses);
 
                     // If a search is present, rebuild the html to possibly include the newly loaded courses
@@ -304,17 +304,28 @@ async function buildHTML(message) {
         const labelDiv = a.getElementsByClassName("course-label")[0];
         labelDiv.replaceChildren(before, b, after);
 
-        const hideButton = a.getElementsByClassName("hide-button")[0];
         if(hiddenCourses.ids.includes(course.id)) {
-            hideButton.remove();
+            const showButton = a.getElementsByClassName("show-button")[0];
+            showButton.hidden = false;
             labelDiv.style.color = "#8c8b94";
+            showButton.onclick = async function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                delete hiddenCourses.data[course.id+""];
+                await browser.storage.sync.set({ hiddenCourses: hiddenCourses.data });
+                await buildHTML();
+            }
         }
-        else hideButton.onclick = async function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            hiddenCourses.data[course.id+""] = name;
-            await browser.storage.sync.set({ hiddenCourses: hiddenCourses.data });
-            await buildHTML("Manage hidden courses in the extension settings");
+        else {
+            const hideButton = a.getElementsByClassName("hide-button")[0];
+            hideButton.hidden = false;
+            hideButton.onclick = async function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                hiddenCourses.data[course.id+""] = name;
+                await browser.storage.sync.set({ hiddenCourses: hiddenCourses.data });
+                await buildHTML("Manage hidden courses in the extension settings");
+            }
         }
 
         const outerDiv = a.getElementsByTagName("div")[0];
