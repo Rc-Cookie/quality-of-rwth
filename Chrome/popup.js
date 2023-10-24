@@ -74,7 +74,7 @@ async function tryLoadCachedCourses() {
     const cache = (await browser.storage.local.get("courseCache")).courseCache;
     if(!cache) return;
 
-    allCoursesLoaded = (await browser.storage.local.get("courseCacheIsComplete")).courseCacheIsComplete;
+    allCoursesLoaded = (await browser.storage.local.get("courseCacheIsComplete")).courseCacheIsComplete === true;
     courses = cache;
 
     await buildHTML();
@@ -138,6 +138,9 @@ async function loadCourses(isRetry) {
 
     if(!resp[0].error) {
 
+        // This does not properly work if the cache was created in an old version (?) but we can use it without
+        // reducing the number of requests to have the older courses already available for search (if it works).
+
         // We only loaded the latest courses, but maybe the latest courses were already the latest courses last time.
         // In that case, we can just replace the first part of the courses (order may have changed) but don't need to
         // fetch the older courses.
@@ -147,6 +150,37 @@ async function loadCourses(isRetry) {
             if(resp[0].data.courses.every(c => firstOldCourseIds.includes(c.id))) {
                 courses.splice(0, resp[0].data.courses.length, ...resp[0].data.courses);
                 combined = true;
+                cacheCourses();
+
+                // Fetch the remaining courses anyways, there seem to be problems when
+                // migrating from an earlier version, where 'allCoursesLoaded' seems to
+                // be true even though it shouldn't be
+                fetch("https://moodle.rwth-aachen.de/lib/ajax/service.php?sesskey="+sesskey, {
+                    method: "post",
+                    body: JSON.stringify([{
+                        index: 0,
+                        methodname: "core_course_get_enrolled_courses_by_timeline_classification",
+                        args: {
+                            offset: maxCourses + hidden.length, // We don't need the courses we already got in the first request, but this time no count limit
+                            classification: byTime ? "all" : "inprogress",
+                            sort: byTime ? "ul.timeaccess desc" : "fullname"
+                        }
+                    }])
+                }).then(r => r.json()).then(async function (resp2) {
+                    if(resp2[0].error) {
+                        // This shouldn't happen, because a similar request already succeded seconds ago
+                        console.error("Unexpected error in second request:", resp2);
+                        return;
+                    }
+                    // Append the received courses to the course list, which is now complete
+                    courses.splice(resp[0].data.length); // Remove old cache (which should theoretically be identical)
+                    courses.push(...resp2[0].data.courses);
+
+                    // If a search is present, rebuild the html to possibly include the newly loaded courses
+                    if(search) await buildHTML();
+                    // Cache the complete course list and mark them as complete
+                    cacheCourses();
+                });
             }
         }
 
@@ -156,7 +190,7 @@ async function loadCourses(isRetry) {
             courses = resp[0].data.courses;
             allCoursesLoaded = true;
         }
-        if(!combined) {
+        else if(!combined) {
             // No cache was present, or the order of the older courses has changed, or new courses were added. We need
             // to fetch all of the remaining courses to support searching for older courses.
             
