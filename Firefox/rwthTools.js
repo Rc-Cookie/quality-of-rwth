@@ -1,87 +1,114 @@
 let functions = {
+    // Registers this tab as the active tab and add listeners for lossing and gaining focus
+    // for when it is needed (e.g. for whether to show the video download link - only show when on that tab)
     registerActiveTab: {
         regex: /.*/,
         action: registerActiveTab,
         allowSubsequent: true
     },
+    // Click "login" on moodle welcome page
     moodleStartAutoForward: {
         regex: /^moodle\.rwth-aachen\.de$/,
         action: moodleLogin
     },
+    // Forward to the login page if attempted to open the dashboard without being logged in, which is possibly
+    // but doesn't show any relevant information
     moodleGuestDashboardLogin: {
         regex: /^moodle\.rwth-aachen\.de\/my\/?/,
         action: onGuestDashboard,
         allowSubsequent: true
     },
+    // Click "to login" on the RWTHOnline main page when not logged in
     rwthOnlineLoginAutoForward: {
         regex: /^online\.rwth-aachen\.de\/RWTHonline\/ee\/ui\/ca2\/app\/desktop\/#\/login$/,
         action: onRWTHOnlineLoginPage
     },
+    // Open the login page if a video page from the video AG requires login
     videoAGAutoLoginForward: {
         regex: /^(video\.fsmpi\.rwth-aachen\.de|rwth\.video)\/[^\/]+\/\d+$/,
         action: onVideoAG,
         allowSubsequent: true
     },
+    // Click "login" if opening a moodle course page while not logged in, which requires login. Moodle just shows
+    // that you need to be logged in, but does not actually forward to the login page
     autoLoginOnCoursePreview: {
-        regex: /^moodle.rwth-aachen.de\/enrol\/index.php/,
+        regex: /^moodle\.rwth-aachen\.de\/enrol\/index.php/,
         action: moodleLogin
     },
+    // Click the "Login" button on the psp page
+    autoLoginOnPSP: {
+        regex: /^psp\.embedded\.rwth-aachen\.de/,
+        action: onPSPLogin
+    },
+    // Select "Remember me" and click "login" on the git.rwth-aachen page
     autoGitLoginForward: {
         regex: /^git\.rwth-aachen\.de\/users\/sign_in\/?$/,
         action: onGitLoginPage
     },
+    // Automatically select a specific institution if you are asked to
     autoSelectInstitution: {
         regex: /^oauth\.campus\.rwth-aachen\.de\/login\/shibboleth\/?(\?.*)?$/,
         action: onSelectInstitution
     },
+    // Automatically select a specific institution if you are asked to, for the git page version
     autoSelectGitInstitution: {
         regex: /^git\.rwth-aachen\.de\/shibboleth-ds\/?(\?.*)?$/,
         action: onSelectGitInstitution,
         setting: "autoSelectInstitution"
     },
+    // Automatically click "Authorize" if you have to, if you already authorized the same app before
     autoAuthorize: {
         regex: /^oauth\.campus\.rwth-aachen\.de\/manage\/?\?q=verify/,
         action: onAutoAuthorize,
         allowSubsequent: true,
         setting: "" // Always run to store the known apps
     },
+    // Automatically close an authorization tab after being done
     autoCloseAfterAuthorize: {
         regex: /^oauth\.campus\.rwth-aachen\.de\/manage\/?\?.*q=authorized/,
         action: onAuthorizeDone
     },
+    // Automatically press "Login" on SSO if the browser filled in username and password
     ssoAutoSubmit: {
         regex: /^sso\.rwth-aachen\.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
         action: onSSO,
         allowSubsequent: true
     },
+    // Automatically press "Login" on the main.rwth-aachen page if the browseer filled in username and password
     autoMailLoginSubmit: {
         regex: /^mail\.rwth-aachen\.de\/owa\/auth\/logon\.aspx/,
         action: onMailLogin,
         allowSubsequent: true
     },
+    // Internal event to find the current session key for moodle to use in requests for the dropdown menu
     searchSessionKey: {
         regex: /^moodle\.rwth-aachen\.de/,
         action: searchSessionKey,
         allowSubsequent: true
     },
+    // Download and open the PDF directly when opening the PDF annotator
     skipPDFAnnotator: {
         regex: /^moodle\.rwth-aachen\.de\/mod\/pdfannotator\/view\.php/,
         action: onPDFAnnotator
     },
+    // Open the link shown on moodle pages which only present that link
     clickURLResources: {
         regex: /^moodle\.rwth-aachen.de\/mod\/url\/view\.php\?(?!stay=true)/,
         action: onURLResource
     },
+    // Internal event to find the video id on an opencast video page
     searchOpencastVideo: {
         regex: /^moodle/,
         action: searchOpencastVideo,
         allowSubsequent: true
     },
+    // Close the "Chat" popup
     removeChatPopup: {
         regex: /^moodle/,
         action: removeChatPopup,
         allowSubsequent: true
     },
+    // Close the "Accept cookies" banner
     acceptCookies: {
         regex: /^moodle/,
         action: acceptCookies,
@@ -100,6 +127,7 @@ async function main() {
     let url = location.href.replace(/https?\:\/\//, "");
     if(url.endsWith("/"))
         url = url.substring(0, url.length - 1);
+    console.log("URL:", url);
 
     for(let [name, info] of Object.entries(functions)) {
         if(!url.match(info.regex)) continue;
@@ -182,6 +210,15 @@ function onRWTHOnlineLoginPage() {
 function onVideoAG() {
     const a = document.getElementsByClassName("reloadonclose")[0];
     if(a) browser.runtime.sendMessage({ command: "browser.tabs.create", data: { url: a.href } });
+}
+
+function onPSPLogin() {
+    let interval = window.setInterval(() => {
+        if(location.href.includes("login")) {
+            location.href = "https://psp.embedded.rwth-aachen.de/api/auth/login?redirect=%2F";
+            window.clearInterval(interval);
+        }
+    }, 100);
 }
 
 async function onGitLoginPage() {
