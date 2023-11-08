@@ -440,7 +440,8 @@ async function tryLoadVideoDownloads() {
 function searchMatch(item) {
     item = item.shortname ? item.shortname : item;
 
-    const lowerItem = item.toLowerCase();
+    const normalize = s => s.toLowerCase().replace("-", " ");
+    const lowerItem = normalize(item);
 
     let start = 0;
     let quality = 1; // Higher is worse
@@ -450,7 +451,7 @@ function searchMatch(item) {
 
         // Upper case characters only match upper case, lower case matches both upper and lower case chars
         if(char === char.toLowerCase())
-            index = lowerItem.indexOf(char, start);
+            index = lowerItem.indexOf(normalize(char), start);
         else index = item.indexOf(char, start);
 
         if(index < start) {

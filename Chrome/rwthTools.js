@@ -115,6 +115,11 @@ let functions = {
         regex: /^moodle/,
         action: acceptCookies,
         allowSubsequent: true
+    },
+    autoEmbeddedHiwiLogin: {
+        regex: /^.*\.embedded\.rwth-aachen\.de/,
+        action: onEmbeddedHiwiLogin,
+        allowSubsequent: true
     }
     // loadVideoData: {
     //     regex: /^moodle\.rwth-aachen\.de\/mod\/lti\/view\.php/,
@@ -129,15 +134,17 @@ async function main() {
     let url = location.href.replace(/https?\:\/\//, "");
     if(url.endsWith("/"))
         url = url.substring(0, url.length - 1);
-    console.log("URL:", url);
 
     for(let [name, info] of Object.entries(functions)) {
         if(!url.match(info.regex)) continue;
         console.log(name);
         const settingsName = info.setting || name;
         browser.storage.sync.get(settingsName).then(settings => {
-            if((settings[settingsName] === undefined && info.default !== false) || settings[settingsName] === true)
+            if((settings[settingsName] === undefined && info.default !== false) || settings[settingsName] === true) try {
                 info.action();
+            } catch(error) {
+                console.error(error);
+            }
         });
         if(!info.allowSubsequent) return;
     }
@@ -288,7 +295,7 @@ function onPDFAnnotator() {
 }
 
 function onSSO() {
-    onAutoSubmitPassword(
+    addAutofillListener(
         document.getElementById("username"),
         document.getElementById("password"),
         document.getElementById("login")
@@ -296,14 +303,14 @@ function onSSO() {
 }
 
 function onMailLogin() {
-    onAutoSubmitPassword(
+    addAutofillListener(
         document.getElementById("username"),
         document.getElementById("password"),
         document.getElementsByClassName("signinbutton")[0]
     );
 }
 
-function onAutoSubmitPassword(username, password, submit) {
+function addAutofillListener(username, password, submit) {
     if(!(username && password && submit)) return;
 
     if(username.value !== "" && password.value !== "") {
@@ -400,16 +407,51 @@ function acceptCookies() {
     if(ok) ok.click();
 }
 
+async function onEmbeddedHiwiLogin() {
+
+    let password = document.getElementsByName("password")[0];
+    let username = document.getElementsByName("username")[0];
+    if(!(password && password)) return; // This should never happen
+
+    const parent = username.parentElement;
+    const usernameIndex = Array.prototype.indexOf.call(parent.childNodes, username);
+    const passwordIndex = Array.prototype.indexOf.call(parent.childNodes, password);
+
+    username.remove();
+    password.remove();
+
+    username = document.createElement("input");
+    password = document.createElement("input");
+    username.classList = password.classList = "pretext";
+    username.id = username.name = username.type = username.autocomplete = "username";
+    password.id = password.name = password.type = password.autocomplete = "password";
+
+    parent.insertBefore(username, parent.childNodes[usernameIndex]);
+    parent.insertBefore(password, parent.childNodes[passwordIndex]);
+
+    // If we are already logged in, the page still loads as login page at first and later removes the login fields.
+    // At least on firefox this leads to the saved passwords panel always being visible, and not being hidden even
+    // though the respective input field has already been removed. Thus, wait a bit and hope that by now the proper
+    // website has been loaded
+    await new Promise(r => setTimeout(r, 250));
+    if(document.getElementById("logout")) return;
+
+    username.focus();
+
+    addAutofillListener(username, password, document.getElementById("login_submit"));
+}
+
 
 
 function moodleLogin() {
     location.href = "https://moodle.rwth-aachen.de/auth/shibboleth/index.php";
 }
 
-function when(condition) {
+function when(condition, pollingInterval = 100) {
     const poll = resolve => {
-        if(condition()) resolve();
-        else setTimeout(() => poll(resolve), 100);
+        value = condition();
+        if(value) resolve(value);
+        else setTimeout(() => poll(resolve), pollingInterval);
     }
     return new Promise(poll);
 }
