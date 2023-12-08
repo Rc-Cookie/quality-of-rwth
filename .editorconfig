@@ -1,0 +1,13 @@
+root = true
+
+[*]
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+indent_style = space
+indent_size = 4
+indent_brace_style = K&R
+
+space_after_keywords_in_control_flow_statements = false
+
+trailing_comma = false
