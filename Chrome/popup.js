@@ -37,10 +37,10 @@ function main() {
   });
 
   searchInput.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowDown" || e.key === "j") {
+    if (e.key === "ArrowDown") {
       if (listContainer.childElementCount !== 0)
         listContainer.children[0].focus();
-    } else if (e.key === "ArrowUp" || e.key === "k") {
+    } else if (e.key === "ArrowUp") {
       if (listContainer.childElementCount !== 0)
         listContainer.children[listContainer.childElementCount - 1].focus();
     }
@@ -417,11 +417,11 @@ async function buildHTML(message) {
       if (e.ctrlKey || e.shiftKey || e.key === "Enter" || e.key === " ")
         e.stopPropagation();
 
-      if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "j" || e.key === "k") {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.stopPropagation();
         listContainer.children[
           ([...listContainer.children].indexOf(a) +
-            (e.key === "ArrowDown" || e.key === "j" ? 1 : -1) +
+            (e.key === "ArrowDown" ? 1 : -1) +
             listContainer.childElementCount) %
             listContainer.childElementCount
         ].focus();
