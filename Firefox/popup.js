@@ -252,7 +252,7 @@ async function loadCourses(isRetry) {
  * @param {boolean} shiftKey is shift pressed?
  */
 function linkAction(url, ctrlKey, shiftKey, flip = false) {
-    const canOpenEmbededTab = true; // Chrome: const canOptnEmbeddedTab = false; // TODO: Chrome popups don't support loading a website into the popup - at least not out of the box
+    const canOpenEmbededTab = true; // Chrome: const canOpenEmbeddedTab = false; // TODO: Chrome popups don't support loading a website into the popup - at least not out of the box
     browser.storage.sync.get("openInNewTab").then(settings => {
         const setting = settings.openInNewTab ^ flip;
         if(shiftKey && canOpenEmbededTab) {
