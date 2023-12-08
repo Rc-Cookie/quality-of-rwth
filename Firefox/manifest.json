@@ -1,10 +1,10 @@
 {
     "manifest_version": 2,
     "name": "Quality of RWTH",
-    "version": "1.8.5",
+    "version": "1.8.7",
 
     "description": "Makes RWTH websites more enjoyable",
-    
+
     "permissions": [
         "*://*.rwth-aachen.de/*",
         "*://*.rwth.video/*",
@@ -17,7 +17,7 @@
     "content_scripts": [
         {
             "matches": [ "*://*.rwth-aachen.de/*", "*://*.rwth.video/*" ],
-            "js": ["rwthTools.js"]
+            "js": [ "rwthTools.js" ]
         }
     ],
     "background": {

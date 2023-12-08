@@ -6,7 +6,7 @@ coursePrefab.remove();
 const downloadArea = document.getElementById("video-download");
 const video1080p = document.getElementById("video-1080p");
 const video720p = document.getElementById("video-720p");
-const videoStreamingLink = document.getElementById("video-streaming-link")
+const videoStreamingLink = document.getElementById("video-streaming-link");
 
 const footer = document.getElementById("footer");
 const bottomMessage = document.getElementById("bottom-message");
@@ -37,7 +37,7 @@ function main() {
     searchInput.addEventListener("keydown", e => {
         if(e.key === "ArrowDown") {
             if(listContainer.childElementCount !== 0)
-                listContainer.children[0].focus();   
+                listContainer.children[0].focus();
         }
         else if(e.key === "ArrowUp") {
             if(listContainer.childElementCount !== 0)
@@ -45,17 +45,14 @@ function main() {
         }
     });
     searchInput.addEventListener("keyup", e => {
-        if(e.key === "Enter") {
-            if(search && listContainer.childElementCount === 1)
-                listContainer.children[0].click();
-            else if(listContainer.childElementCount !== 0)
-                listContainer.children[0].focus();   
-        }
+        if(e.key === "Enter" && search && listContainer.childElementCount >= 1)
+            linkAction(listContainer.children[0].href, e.ctrlKey, e.shiftKey);
     });
 
     document.onkeydown = e => {
+        if(e.key === "Control" || e.key === "Shift") return;
         searchInput.focus();
-        searchInput.dispatchEvent(new KeyboardEvent("keydown", { "key": e.key }))
+        searchInput.dispatchEvent(new KeyboardEvent("keydown", { key: e.key, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey }))
     }
 }
 
@@ -191,7 +188,7 @@ async function loadCourses(isRetry) {
         else if(!combined) {
             // No cache was present, or the order of the older courses has changed, or new courses were added. We need
             // to fetch all of the remaining courses to support searching for older courses.
-            
+
             // Store the first fetched courses and mark them as incomplete
             courses = resp[0].data.courses;
             allCoursesLoaded = false;
@@ -246,6 +243,34 @@ async function loadCourses(isRetry) {
         //     searchInput.hidden = true;
     }
 }
+
+/**
+ * A function to handle link clicks
+ *
+ * @param {string} url the url
+ * @param {boolean} ctrlKey is ctrl pressed?
+ * @param {boolean} shiftKey is shift pressed?
+ */
+function linkAction(url, ctrlKey, shiftKey, flip = false) {
+    const canOpenEmbededTab = true; // Chrome: const canOptnEmbeddedTab = false; // TODO: Chrome popups don't support loading a website into the popup - at least not out of the box
+    browser.storage.sync.get("openInNewTab").then(settings => {
+        const setting = settings.openInNewTab ^ flip;
+        if(shiftKey && canOpenEmbededTab) {
+            // Open embeded tab
+            document.location.href = url;
+        }
+        else if((!setting && ctrlKey) || (setting && !ctrlKey)) {
+            // Create a new tab when ctrl key is pressed. Flip behaviour when openInNewTab setting is used
+            browser.tabs.create({ url: url });
+            window.close();
+        }
+        else {
+            //rewrite current url
+            browser.tabs.update({ url: url });
+            window.close();
+        }
+    });
+};
 
 async function buildHTML(message) {
 
@@ -332,27 +357,14 @@ async function buildHTML(message) {
         outerDiv.onclick = e => {
             e.preventDefault();
             updateCache();
-            if(e.ctrlKey) // Chrome: if(false) // Chrome popups don't support loading a website into the popup - at least not out of the box
-                document.location.href = course.viewurl;
-            else browser.storage.sync.get("openInNewTab").then(s => {
-                if(s.openInNewTab)
-                    browser.tabs.create({ url: course.viewurl });
-                else browser.tabs.update({ url: course.viewurl });
-                window.close();
-            });
+            linkAction(course.viewurl, e.ctrlKey, e.shiftKey);
         };
         outerDiv.onauxclick = e => {
             if(e.button !== 1) return;
             e.preventDefault();
-
             updateCache();
-            browser.storage.sync.get("openInNewTab").then(s => {
-                if(s.openInNewTab) // Inverse of regular action
-                    browser.tabs.update({ url: course.viewurl });
-                else browser.tabs.create({ url: course.viewurl });
-                window.close();
-            });
-        }
+            linkAction(course.viewurl, e.ctrlKey, e.shiftKey, true);
+        };
         outerDiv.onkeydown = e => {
             if(e.key === "ArrowDown" || e.key === "ArrowUp") {
                 e.stopPropagation();
@@ -360,7 +372,7 @@ async function buildHTML(message) {
             }
             else if(e.key == "Enter" || e.key == " ") {
                 e.stopPropagation();
-                div.dispatchEvent(new MouseEvent("click", { ctrlKey: e.ctrlKey }));
+                outerDiv.dispatchEvent(new MouseEvent("click", { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey }));
             }
         };
 
