@@ -38,7 +38,8 @@ let functions = {
     // Click the "Login" button on the psp page
     autoLoginOnPSP: {
         regex: /^psp\.embedded\.rwth-aachen\.de/,
-        action: onPSPLogin
+        action: onPSPLogin,
+        allowSubsequent: true
     },
     // Select "Remember me" and click "login" on the git.rwth-aachen page
     autoGitLoginForward: {
@@ -114,9 +115,23 @@ let functions = {
         action: acceptCookies,
         allowSubsequent: true
     },
+    // Automatically select the login box in the I11 hiwi page and submit if autofilled
     autoEmbeddedHiwiLogin: {
         regex: /^.*\.embedded\.rwth-aachen\.de/,
         action: onEmbeddedHiwiLogin,
+        allowSubsequent: true
+    },
+    // Select dark or light mode on the psp website
+    PSPDarkMode: {
+        regex: /^psp\.embedded\.rwth-aachen\.de/,
+        action: onPSPDarkMode,
+        allowSubsequent: true,
+        setting: "autoDarkMode"
+    },
+    // Adds a button to the PSP website to clear all boxes on the experiment overview page
+    PSPClearAllBoxesButton: {
+        regex: /^psp\.embedded\.rwth-aachen\.de\/experiments-overview/,
+        action: clearPSPBoxes,
         allowSubsequent: true
     }
     // loadVideoData: {
@@ -339,23 +354,37 @@ function onURLResource() {
 }
 
 async function searchOpencastVideo() {
-    const iframe = document.getElementsByTagName("iframe")[0];
-    if(!iframe) return;
-    if(iframe.className === "ocplayer") {
-        return await loadVideoData(iframe.getAttribute("data-framesrc").match(/play\/(.{36})/)[1]);
-    }
-    if(iframe.id === "contentframe" && location.href.includes("mod/lti/view.php")) {
-        const id = location.search.match(/id=(\d+)/)[1];
-        console.log("Video ID:", id);
+    let videoInfos = [];
+    for(const iframe of document.getElementsByTagName("iframe")) {
+        if(!iframe) continue;
+        if(iframe.className === "ocplayer") {
+            videoInfos.push(await getVideoInfo(iframe.getAttribute("data-framesrc").match(/play\/(.{36})/)[1]));
+        }
+        else if(iframe.id === "contentframe" && location.href.includes("mod/lti/view.php")) {
+            const id = location.search.match(/id=(\d+)/)[1];
+            console.log("Video ID:", id);
 
-        const uuid = (await fetch("https://moodle.rwth-aachen.de/mod/lti/launch.php?id="+id).then(r => r.text())).match(/name\s*=\s*"custom_id"\s*value\s*=\s*"(.{36})"/)[1];
+            const uuid = (await fetch("https://moodle.rwth-aachen.de/mod/lti/launch.php?id="+id).then(r => r.text())).match(/name\s*=\s*"custom_id"\s*value\s*=\s*"(.{36})"/)[1];
 
-        return await loadVideoData(uuid);
+            videoInfos.push(await getVideoInfo(uuid));
+        }
     }
+
+    let allVideoInfos = (await browser.runtime.sendMessage({ command: "getStorage", storage: "local", name: "videoInfos" })).videoInfos || {};
+    allVideoInfos[location.href] = videoInfos;
+    for(const key in allVideoInfos)
+        if(!allVideoInfos[key] instanceof Array)
+            allVideoInfos[key] = [allVideoInfos[key]];
+
+    if(Object.keys(allVideoInfos).length > 10) {
+        allVideoInfos = Object.entries(allVideoInfos).sort(([_1,a],[_2,b]) => b[0].time - a[0].time);
+        allVideoInfos.length = 10;
+        allVideoInfos = allVideoInfos.reduce((obj, [k,v]) => ({ ...obj, [k]: v }), {});
+    }
+    await browser.runtime.sendMessage({ command: "setStorage", storage: "local", data: { videoInfos: allVideoInfos } })
 }
 
 async function loadVideoData(uuid) {
-    console.log("Video UUID:", uuid);
     const info = await getVideoInfo(uuid);
 
     let videoInfos = (await browser.runtime.sendMessage({ command: "getStorage", storage: "local", name: "videoInfos" })).videoInfos || {};
@@ -369,6 +398,7 @@ async function loadVideoData(uuid) {
 }
 
 async function getVideoInfo(uuid) {
+    console.log("Video UUID:", uuid);
     let data = (await fetch("https://engage.streaming.rwth-aachen.de/search/episode.json?id="+uuid, { credentials: "include" }).then(r => r.json()))["search-results"];
 
     while(data.total === 0) {
@@ -379,7 +409,7 @@ async function getVideoInfo(uuid) {
     }
 
     console.log("Video data:", data);
-    const tracks = data.result.mediapackage.media.track;                              
+    const tracks = data.result.mediapackage.media.track;
     return {
         tracks: tracks.filter(t => t.mimetype === "video/mp4" && t.video.resolution.length >= 8 /* at least 720p */)
                       .map(t => ({ url: t.url, resolution: t.video.resolution })),
@@ -437,6 +467,22 @@ async function onEmbeddedHiwiLogin() {
     username.focus();
 
     addAutofillListener(username, password, document.getElementById("login_submit"));
+}
+
+async function onPSPDarkMode() {
+    const btn = await when(() => [...document.getElementsByClassName("mb-2 v-btn v-btn--block v-btn--is-elevated v-btn--has-bg v-size--small")].filter(b => b.innerText.toLowerCase().includes("theme"))[0]);
+    const mode = (await browser.storage.sync.get("lightMode")).lightMode ? "theme--light" : "theme--dark";
+    while(!btn.className.includes(mode)) {
+        btn.click();
+        await new Promise(r => setTimeout(r));
+    }
+}
+
+async function clearPSPBoxes() {
+    const btn = await when(() => document.getElementsByClassName("ml-auto hover-row-button v-btn")[0]);
+    btn.addEventListener("click", () => {
+        [...document.getElementsByTagName("input")].filter(i => i.type === "checkbox" && i.checked).forEach(c => c.click());
+    });
 }
 
 

@@ -8,7 +8,7 @@
       html,
       body {
         width: 350px;
-        max-height: 550px;
+        max-height: 570px;
         font-family: Inter, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         background-color: #42414d; /* Chrome: background-color: #292a2d; */
       }
@@ -87,7 +87,7 @@
       .clickable-item:not(:hover) .hide-show-button {
         visibility: hidden;
       }
-      
+
       .icon {
         position: relative;
         display: block;
@@ -129,10 +129,11 @@
       <div id="video-download" style="width: 100%;" hidden>
         <hr>
         <div id="top-message" class="base-item item message-item">Download embedded video</div>
-        <table style="width: 100%; table-layout: fixed;"><tr>
-          <td style="text-align: center" class="base-item clickable-item" id="video-1080p">1080p</td>
-          <td style="text-align: center" class="base-item clickable-item" id="video-720p">720p</td>
-          <td style="text-align: center" class="base-item clickable-item" id="video-streaming-link">Copy stream link</td>
+        <table style="width: 100%; table-layout: fixed;"><tr hidden>
+          <td style="text-align: center" class="base-item clickable-item video-1080p">1080p</td>
+          <td style="text-align: center" class="base-item clickable-item video-720p">720p</td>
+          <td style="text-align: center" class="base-item clickable-item video-other-res" hidden>Weird resolution</td>
+          <td style="text-align: center; ;" class="base-item clickable-item video-streaming-link">Copy stream link</td>
         </tr></table>
       </div>
 

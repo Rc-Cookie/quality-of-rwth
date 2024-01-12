@@ -4,9 +4,10 @@ const coursePrefab = document.getElementById("course-prefab");
 coursePrefab.remove();
 
 const downloadArea = document.getElementById("video-download");
-const video1080p = document.getElementById("video-1080p");
-const video720p = document.getElementById("video-720p");
-const videoStreamingLink = document.getElementById("video-streaming-link");
+const downloadRow = downloadArea.getElementsByTagName("tr")[0];
+// const video1080p = document.getElementById("video-1080p");
+// const video720p = document.getElementById("video-720p");
+// const videoStreamingLink = document.getElementById("video-streaming-link");
 
 const footer = document.getElementById("footer");
 const bottomMessage = document.getElementById("bottom-message");
@@ -429,18 +430,55 @@ async function tryFetchSesskey() {
 async function tryLoadVideoDownloads() {
     const tab = await browser.runtime.sendMessage({ command: "getActiveTab" });
     if(!tab || !tab.url) return;
-    const info = ((await browser.storage.local.get("videoInfos")).videoInfos || {})[tab.url];
-    if(!info) return;
+    const infos = ((await browser.storage.local.get("videoInfos")).videoInfos || {})[tab.url];
+    if(!infos) return;
 
-    const track1080p = info.tracks.find(t => t.resolution === "1920x1080");
-    const track720p = info.tracks.find(t => t.resolution === "1280x720");
-    video1080p.hidden = !track1080p;
-    video720p.hidden = !track720p;
-    video1080p.onclick = () => browser.downloads.download({ url: track1080p.url });
-    video720p.onclick = () => browser.downloads.download({ url: track720p.url });
+    if(!(infos instanceof Array))
+        infos = [infos];
 
-    videoStreamingLink.hidden = !info.stream;
-    videoStreamingLink.onclick = () => navigator.clipboard.writeText(info.stream);
+    let maxCount = 0;
+
+    for(const info of infos) {
+        const html = downloadRow.cloneNode(true);
+        html.hidden = false;
+        downloadRow.parentElement.appendChild(html);
+
+        const video1080p = html.getElementsByClassName("video-1080p")[0];
+        const video720p = html.getElementsByClassName("video-720p")[0];
+        const videoStreamingLink = html.getElementsByClassName("video-streaming-link")[0];
+
+        const track1080p = info.tracks.find(t => t.resolution === "1920x1080");
+        const track720p = info.tracks.find(t => t.resolution === "1280x720");
+        video1080p.hidden = !track1080p;
+        video720p.hidden = !track720p;
+        video1080p.onclick = () => browser.downloads.download({ url: track1080p.url });
+        video720p.onclick = () => browser.downloads.download({ url: track720p.url });
+        if(!track1080p && !track720p && info.tracks.length !== 0) {
+            let track = info.tracks[0];
+            for(let t of info.tracks)
+                if(parseInt(t.resolution.substring(0, t.resolution.indexOf("x"))) > parseInt(track.resolution.substring(0, track.resolution.indexOf("x"))))
+                    track = t;
+
+            const otherRes = html.getElementsByClassName("video-other-res")[0];
+            otherRes.hidden = false;
+            otherRes.onclick = () => browser.downloads.download({ url: track.url });
+            otherRes.innerText = track.resolution;
+        }
+
+        videoStreamingLink.hidden = !info.stream;
+        videoStreamingLink.onclick = () => navigator.clipboard.writeText(info.stream);
+
+        maxCount = Math.max(maxCount, (track1080p?1:0) + (track720p?1:0) + (!track1080p&&!track720p?1:0) + (info.stream?1:0));
+    }
+    console.log("Max count", maxCount);
+    for(const row of downloadRow.parentElement.children) {
+        if(row === downloadRow || row.getElementsByClassName("video-streaming-link")[0].hidden) continue;
+        const count = [...row.children].filter(d => !d.hidden).length;
+        for(let i=count; i<maxCount; i++) {
+            console.log("last", row.children[row.children.length-1]);
+            row.insertBefore(document.createElement("td"), row.children[row.children.length-1]);
+        }
+    }
 
     downloadArea.hidden = false;
 }
