@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Quality of RWTH",
-    "version": "1.8.9",
+    "version": "1.8.10",
     "description": "Makes RWTH websites more enjoyable",
     "permissions": [
         "*://*.rwth-aachen.de/*",

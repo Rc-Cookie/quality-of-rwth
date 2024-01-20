@@ -256,9 +256,10 @@ async function loadCourses(isRetry) {
  */
 function linkAction(url, ctrlKey, shiftKey, flip = false) {
     const canOpenEmbeddedTab = false; // TODO: Chrome popups don't support loading a website into the popup - at least not out of the box
+    console.log("Executing link action...");
     browser.storage.sync.get("openInNewTab").then(settings => {
         const setting = settings.openInNewTab ^ flip;
-        if(shiftKey && canOpenEmbededTab) {
+        if(shiftKey && canOpenEmbeddedTab) {
             // Open embeded tab
             document.location.href = url;
         }
@@ -359,23 +360,29 @@ async function buildHTML(message) {
         const outerDiv = a.getElementsByTagName("div")[0];
         outerDiv.onclick = e => {
             e.preventDefault();
+            e.stopPropagation();
             updateCache();
             linkAction(course.viewurl, e.ctrlKey, e.shiftKey);
+            return false;
         };
         outerDiv.onauxclick = e => {
             if(e.button !== 1) return;
             e.preventDefault();
+            e.stopPropagation();
             updateCache();
             linkAction(course.viewurl, e.ctrlKey, e.shiftKey, true);
+            return false;
         };
         outerDiv.onkeydown = e => {
             if(e.key === "ArrowDown" || e.key === "ArrowUp") {
                 e.stopPropagation();
                 listContainer.children[([...listContainer.children].indexOf(a) + (e.key === "ArrowDown" ? 1 : -1) + listContainer.childElementCount) % listContainer.childElementCount].focus();
+                return false;
             }
             else if(e.key == "Enter" || e.key == " ") {
                 e.stopPropagation();
                 outerDiv.dispatchEvent(new MouseEvent("click", { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey }));
+                return false;
             }
         };
 
