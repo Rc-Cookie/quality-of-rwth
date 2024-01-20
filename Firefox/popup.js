@@ -438,10 +438,7 @@ async function tryLoadVideoDownloads() {
     const tab = await browser.runtime.sendMessage({ command: "getActiveTab" });
     if(!tab || !tab.url) return;
     const infos = ((await browser.storage.local.get("videoInfos")).videoInfos || {})[tab.url];
-    if(!infos) return;
-
-    if(!(infos instanceof Array))
-        infos = [infos];
+    if(!infos || !(infos instanceof Array) || infos.length === 0) return;
 
     let maxCount = 0;
 
