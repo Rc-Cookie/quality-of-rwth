@@ -135,6 +135,12 @@ let functions = {
         regex: /^psp\.embedded\.rwth-aachen\.de\/experiments-overview/,
         action: clearPSPBoxes,
         allowSubsequent: true
+    },
+    // Adds a button to the PSP website to kick the students from the selected VMs immediately
+    PSPAddKickFunction: {
+        regex: /^psp\.embedded\.rwth-aachen\.de\/vmpool/,
+        action: addPSPKickFunction,
+        allowSubsequent: true
     }
     // loadVideoData: {
     //     regex: /^moodle\.rwth-aachen\.de\/mod\/lti\/view\.php/,
@@ -145,23 +151,28 @@ let functions = {
 main();
 
 async function main() {
+    while(true) {
+        let url = location.href.replace(/https?\:\/\//, "");
+        if(url.endsWith("/"))
+            url = url.substring(0, url.length - 1);
 
-    let url = location.href.replace(/https?\:\/\//, "");
-    if(url.endsWith("/"))
-        url = url.substring(0, url.length - 1);
+        for(let [name, info] of Object.entries(functions)) {
+            if(!url.match(info.regex)) continue;
+            console.log(name);
+            const settingsName = info.setting || name;
+            browser.storage.sync.get(settingsName).then(settings => {
+                if((settings[settingsName] === undefined && info.default !== false) || settings[settingsName] === true) try {
+                    info.action();
+                } catch(error) {
+                    console.error(error);
+                }
+            });
+            if(!info.allowSubsequent) break;
+        }
 
-    for(let [name, info] of Object.entries(functions)) {
-        if(!url.match(info.regex)) continue;
-        console.log(name);
-        const settingsName = info.setting || name;
-        browser.storage.sync.get(settingsName).then(settings => {
-            if((settings[settingsName] === undefined && info.default !== false) || settings[settingsName] === true) try {
-                info.action();
-            } catch(error) {
-                console.error(error);
-            }
-        });
-        if(!info.allowSubsequent) return;
+        const href = location.href;
+        await when(() => location.href !== href);
+        console.log("One-Page side change detected:", href, "->", location.href);
     }
 }
 
@@ -492,6 +503,36 @@ async function clearPSPBoxes() {
     const btn = await when(() => document.getElementsByClassName("ml-auto hover-row-button v-btn")[0]);
     btn.addEventListener("click", () => {
         [...document.getElementsByTagName("input")].filter(i => i.type === "checkbox" && i.checked).forEach(c => c.click());
+    });
+}
+
+async function addPSPKickFunction() {
+
+    const kickBtn = await when(() => document.getElementsByClassName("v-btn v-btn--text v-size--default")[7]);
+    const divider = kickBtn.nextSibling;
+    kickBtn.parentElement.insertBefore(divider.cloneNode(true), divider);
+
+    const btn = kickBtn.cloneNode(true);
+    btn.title = "Sofort kicken";
+    btn.classList = document.getElementsByClassName("v-btn v-btn--text v-size--default")[10].classList;
+    btn.style.color = "red";
+    kickBtn.parentElement.insertBefore(btn, divider);
+
+    btn.children[0].addEventListener("click", async () => {
+        const selectedNames = [...document.getElementsByTagName("tbody")[0].children]
+            .filter(r => r.getElementsByClassName("mdi-checkbox-marked").length !== 0)
+            .map(r => r.children[2].innerText);
+        if(selectedNames.length === 0) return;
+
+        const sessions = (await fetch(location.origin+"/api/vmm/vm").then(r => r.json()))
+            .filter(vm => selectedNames.filter(n => vm.name.endsWith(n)).length !== 0)
+            .map(vm => vm.session.id);
+        const token = document.cookie.split(";")
+            .filter(c => c.startsWith("XSRF-TOKEN="))[0]
+            .substring("XSRF-TOKEN=".length);
+        for(const session of sessions)
+            await fetch(location.origin+"/api/vmm/session/"+session, { method: "DELETE", headers: { "X-CSRF-Token": token } });
+        alert("You monster");
     });
 }
 
