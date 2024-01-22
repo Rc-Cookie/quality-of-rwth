@@ -369,12 +369,20 @@ async function searchOpencastVideo() {
             videoInfos.push(await getVideoInfo(uuid));
         }
     }
+    if(videoInfos.length === 0) return;
 
     let allVideoInfos = (await browser.runtime.sendMessage({ command: "getStorage", storage: "local", name: "videoInfos" })).videoInfos || {};
     allVideoInfos[location.href] = videoInfos;
+
+    // Migrate from old version where only one video per page was possible
     for(const key in allVideoInfos)
-        if(!allVideoInfos[key] instanceof Array)
+        if(!(allVideoInfos[key] instanceof Array))
             allVideoInfos[key] = [allVideoInfos[key]];
+
+    // Remove any empty entries which were written in a previous version where there was no check whether they were empty before written
+    for(const key of Object.keys(allVideoInfos))
+        if(allVideoInfos[key].length === 0)
+            delete allVideoInfos[key];
 
     if(Object.keys(allVideoInfos).length > 10) {
         allVideoInfos = Object.entries(allVideoInfos).sort(([_1,a],[_2,b]) => b[0].time - a[0].time);
