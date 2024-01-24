@@ -45,7 +45,7 @@ let functions = {
     },
     // Select "Remember me" and click "login" on the git.rwth-aachen page
     autoGitLoginForward: {
-        regex: /^git\.rwth-aachen\.de\/users\/sign_in\/?$/,
+        regex: /^git(-ce)?\.rwth-aachen\.de\/users\/sign_in\/?$/,
         action: onGitLoginPage
     },
     // Automatically select a specific institution if you are asked to
@@ -55,7 +55,7 @@ let functions = {
     },
     // Automatically select a specific institution if you are asked to, for the git page version
     autoSelectGitInstitution: {
-        regex: /^git\.rwth-aachen\.de\/shibboleth-ds\/?(\?.*)?$/,
+        regex: /^git(-ce)?\.rwth-aachen\.de\/shibboleth-ds\/?(\?.*)?$/,
         action: onSelectGitInstitution,
         setting: "autoSelectInstitution"
     },
