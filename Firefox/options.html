@@ -65,6 +65,14 @@
                 <td>Automatically select 'RWTH' as the insitution when promped for authentification</td>
             </tr>
             <tr>
+                <td><select class="settings-dropdown" name="autoAuthorize">
+                    <option value="never" title="Behaves like the regular page - if select 'Remember', it will remember until the permissions change">Never</option>
+                    <option value="confirmOnce" title="Once you confirm once and select 'Remember', the app will always be authorized, even if the permissions change later" selected>After confirmed once</option>
+                    <option value="always" title="Always immediately authorize, even if you never authorzed manually or selected 'Don't remember'">Always immediately</option>
+                </select></td>
+                <td>When to automatically confirm apps to access your information</td>
+            </tr>
+            <tr>
                 <td><input class="settings-checkbox" type="checkbox" name="autoAuthorize" checked></td>
                 <td>Automatically authorize apps you already authorized before</td>
             </tr>

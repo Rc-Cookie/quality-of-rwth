@@ -58,9 +58,17 @@ let functions = {
         setting: "autoSelectInstitution"
     },
     // Automatically click "Authorize" if you have to, if you already authorized the same app before
-    autoAuthorize: {
+    autoSSOAuthorize: {
+        // ^oauth\.campus\.rwth-aachen\.de\/manage\/?\?q=verify
+        regex: /^sso\.rwth-aachen\.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        action: onAutoSSOAuthorize,
+        allowSubsequent: true,
+        setting: "" // Always run to store the known apps
+    },
+    // Same as above, but different page looks (RWTH, why???)
+    autoOAuthAuthorize: {
         regex: /^oauth\.campus\.rwth-aachen\.de\/manage\/?\?q=verify/,
-        action: onAutoAuthorize,
+        action: onAutoOAuthAuthorize,
         allowSubsequent: true,
         setting: "" // Always run to store the known apps
     },
@@ -156,14 +164,15 @@ async function main() {
 
         for(let [name, info] of Object.entries(functions)) {
             if(!url.match(info.regex)) continue;
-            console.log(name);
-            const settingsName = info.setting || name;
+            const settingsName = info.setting ?? name;
             browser.storage.sync.get(settingsName).then(settings => {
                 if((settings[settingsName] === undefined && info.default !== false) || settings[settingsName] === true) try {
+                    console.log(name);
                     info.action();
                 } catch(error) {
                     console.error(error);
                 }
+                else console.log("Disabled:", name);
             });
             if(!info.allowSubsequent) break;
         }
@@ -288,13 +297,77 @@ async function onSelectGitInstitution() {
     document.getElementById("idpSelectListButton").click();
 }
 
-async function onAutoAuthorize() {
+async function onAutoSSOAuthorize() {
+    const rememberBtn = document.getElementById("_shib_idp_rememberConsent");
+    if(!rememberBtn) return;
+
+    const form = document.getElementsByTagName("form")[0];
+    const app = form.getElementsByTagName("strong")[0].innerText;
+    const known = (await browser.storage.sync.get("authorizedApps")).authorizedApps || [];
+    const button = form.getElementsByClassName("btn-primary")[0];
+
+    const setting = (await browser.storage.sync.get("autoAuthorize")).autoAuthorize;
+
+    if(setting === "always") {
+        // Don't save as actively consented
+        button.click();
+        return;
+    }
+
+    if(setting === undefined || setting === "confirmOnce") {
+        if(known.includes(app)) {
+            button.click();
+            return;
+        }
+
+        for(const text of [...rememberBtn.parentElement.childNodes].filter(n => n instanceof Text)) {
+            const strikethrough = document.createElement("s");
+            strikethrough.innerText = text.textContent.trim();
+            text.parentElement.replaceChild(strikethrough, text);
+        }
+        rememberBtn.parentElement.appendChild(document.createElement("br"));
+        rememberBtn.parentElement.appendChild(document.createTextNode("You will not be asked to confirm permissions for this App again, even if the permissions change. (Quality of RWTH)"));
+    }
+
+    button.addEventListener("click", () => {
+        if(!rememberBtn.checked) {
+            // Shouldn't remember
+            if(known.includes(app)) {
+                known.splice(known.indexOf(app), 1);
+                browser.storage.sync.set({ authorizedApps: known });
+            }
+            return;
+        }
+        if(known.includes(app)) return;
+        known.push(app);
+        browser.storage.sync.set({ authorizedApps: known });
+    });
+
+    // Reject button
+    form.getElementsByClassName("btn-danger")[0].addEventListener("click", () => {
+        // Shouldn't remember
+        if(known.includes(app)) {
+            known.splice(known.indexOf(app), 1);
+            browser.storage.sync.set({ authorizedApps: known });
+        }
+    });
+}
+
+async function onAutoOAuthAuthorize() {
     const app = document.getElementsByClassName("text-info")[0].innerText;
     const known = (await browser.storage.sync.get("authorizedApps")).authorizedApps || [];
-    const button = document.getElementsByTagName("form")[0].getElementsByClassName("btn")[0];
+    const button = document.getElementsByTagName("form")[0].getElementsByClassName("btn-primary")[0];
+
+    const setting = (await browser.storage.sync.get("autoAuthorize")).autoAuthorize;
+
+    if(setting === "always") {
+        // Don't save as actively consented
+        button.click();
+        return;
+    }
 
     if(known.includes(app)) {
-        if((await browser.storage.sync.get("autoAuthorize")).autoAuthorize !== false)
+        if(setting === undefined || setting === "confirmOnce")
             button.click();
         return;
     }
