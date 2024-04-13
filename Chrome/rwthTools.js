@@ -149,6 +149,12 @@ let functions = {
         regex: /^psp\.embedded\.rwth-aachen\.de\/vmpool/,
         action: addPSPKickFunction,
         allowSubsequent: true
+    },
+    // Submit the text input when pressing ctrl + enter
+    PSPHiwiCtrlEnterSubmit: {
+        regex: /^hiwi\.embedded\.rwth-aachen\.de\/?(\?.*)?/,
+        action: addPSPCtrlEnterSubmit,
+        allowSubsequent: true
     }
     // loadVideoData: {
     //     regex: /^moodle\.rwth-aachen\.de\/mod\/lti\/view\.php/,
@@ -163,6 +169,12 @@ async function main() {
         let url = location.href.replace(/https?\:\/\//, "");
         if(url.endsWith("/"))
             url = url.substring(0, url.length - 1);
+
+        // Check if website is ignored, in that case exit
+        ignored = (await browser.storage.sync.get("ignoredSites")).ignoredSites || [];
+        for(site of ignored)
+            if(url.match("([^/?#]\\.)?" + escapeRegExp(site) + "([/?#].*)?"))
+                return console.log("Ignored site:", site);
 
         for(let [name, info] of Object.entries(functions)) {
             if(!url.match(info.regex)) continue;
@@ -183,6 +195,10 @@ async function main() {
         await when(() => location.href !== href);
         console.log("One-Page side change detected:", href, "->", location.href);
     }
+}
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 async function searchSessionKey() {
@@ -267,10 +283,13 @@ function onPSPLogin() {
 
 async function onGitLoginPage() {
     if((await browser.storage.sync.get("rememberMe")).rememberMe !== false) {
-        const box = document.getElementById("remember_me_omniauth");
+        const box = document.getElementById("remember_me_omniauth") || document.getElementById("js-remember-me-omniauth");
         if(box) box.checked = true;
+        else console.error("Remember me button not found");
     }
-    document.getElementById("oauth-login-saml").click();
+    const btn = document.getElementById("oauth-login-saml") || document.querySelector("button[data-testid=saml-login-button]");
+    if(btn) btn.click();
+    else console.error("Login button not found");
 }
 
 async function onSelectInstitution() {
@@ -606,6 +625,15 @@ async function addPSPKickFunction() {
         for(const session of sessions)
             await fetch(location.origin+"/api/vmm/session/"+session, { method: "DELETE", headers: { "X-CSRF-Token": token } });
         alert("You monster");
+    });
+}
+
+async function addPSPCtrlEnterSubmit() {
+    const textarea = await when(() => document.querySelector("textarea"));
+    const submit = await when(() => document.querySelector("input[type=submit]"));
+    textarea.addEventListener("keyup", e => {
+        if(e.key === "Enter" && e.ctrlKey)
+            submit.click();
     });
 }
 

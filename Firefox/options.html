@@ -121,6 +121,26 @@
                     </div>
                 </td>
             </tr>
+            <tr><td><br></td></tr>
+            <tr>
+                <td><h3>Ignored websites</h3></td>
+                <td>
+                    <div>
+                        You can specify websites where the extension will not run (at best effort), if you are having trouble with a page when the extension is enabled.
+                        Specify a domain and optionally a route, e.g. <code>test.rwth-aachen.de/my/site</code>.
+                        This would disable the extension on <code>sub.test.rwth-aachen.de/my/site</code> and also on <code>test.rwth-aachen.de/my/site/detail</code>, but
+                        not on <code>moodle.rwth-aachen.de/my/site</code>.
+                    </div>
+                    <ul id="ignored-sites">
+                        <!-- <li class="ignored-site">
+                            <input title="domain, optionally with route" style="width: 100%" placeholder="Enter a domain" value="moodle.rwth-aachen.de">
+                        </li> -->
+                        <li class="ignored-site">
+                            <input title="domain, optionally with route" style="width: 100%" placeholder="Enter a domain">
+                        </li>
+                    </ul>
+                </td>
+            </tr>
         </table>
     </form>
     <script src='options.js'></script>
