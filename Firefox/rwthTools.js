@@ -656,7 +656,7 @@ async function addPSPCheckboardHoverInfo() {
         const route = task === "Nachbefragung" ? "questioning" : "task/"+task;
 
         input.onmouseover = async () => {
-            const info = await fetch(`/api/checkboard/desk/${team}/${route}`).then(r => r.json());
+            const info = await fetch(`${location.origin}/api/checkboard/desk/${team}/${route}`).then(r => r.json());
             const changeTimeDiff = Math.round((Date.now() - info.last_change) / (1000 * 60))
             td.title = `Letzte Änderung durch ${info.changed_by.name} vor ${changeTimeDiff !== 1 ? changeTimeDiff+" Minuten" : "einer Minute"}`;
         }
