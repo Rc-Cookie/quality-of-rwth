@@ -37,7 +37,7 @@ let functions = {
     },
     // Click the "Login" button on the psp page
     autoLoginOnPSP: {
-        regex: /^psp\.embedded\.rwth-aachen\.de/,
+        regex: /^psp(-website-dev)?\.embedded\.rwth-aachen\.de/,
         action: onPSPLogin,
         allowSubsequent: true
     },
@@ -131,21 +131,27 @@ let functions = {
     },
     // Select dark or light mode on the psp website
     PSPDarkMode: {
-        regex: /^psp\.embedded\.rwth-aachen\.de/,
+        regex: /^psp(-website-dev)?\.embedded\.rwth-aachen\.de/,
         action: onPSPDarkMode,
         allowSubsequent: true,
         setting: "autoDarkMode"
     },
     // Adds a button to the PSP website to clear all boxes on the experiment overview page
     PSPClearAllBoxesButton: {
-        regex: /^psp\.embedded\.rwth-aachen\.de\/experiments-overview/,
+        regex: /^psp(-website-dev)?\.embedded\.rwth-aachen\.de\/experiments-overview/,
         action: clearPSPBoxes,
         allowSubsequent: true
     },
     // Adds a button to the PSP website to kick the students from the selected VMs immediately
     PSPAddKickFunction: {
-        regex: /^psp\.embedded\.rwth-aachen\.de\/vmpool/,
+        regex: /^psp(-website-dev)?\.embedded\.rwth-aachen\.de\/vmpool/,
         action: addPSPKickFunction,
+        allowSubsequent: true
+    },
+    // Adds information about a checkbox of the checkboard when hovered over it
+    PSPAddCheckboardHoverInfo: {
+        regex: /^psp(-website-dev)?\.embedded\.rwth-aachen\.de\/checkboard/,
+        action: addPSPCheckboardHoverInfo,
         allowSubsequent: true
     }
     // loadVideoData: {
@@ -605,6 +611,29 @@ async function addPSPKickFunction() {
             await fetch(location.origin+"/api/vmm/session/"+session, { method: "DELETE", headers: { "X-CSRF-Token": token } });
         alert("You monster");
     });
+}
+
+async function addPSPCheckboardHoverInfo() {
+    await when(() => document.querySelector("input[type=checkbox]"))
+    for(const input of document.querySelectorAll("input[type=checkbox]")) {
+        let td = input.parentElement;
+        while(td && td.tagName !== "TD") td = td.parentElement;
+        if(!td) return;
+
+        const team = td.parentElement.children[0].innerText.trim();
+
+        let tbody = td.parentElement;
+        while(tbody.tagName !== "TBODY") tbody = tbody.parentElement;
+        const thead = tbody.previousElementSibling;
+        const task = thead.children[0].children[[...td.parentElement.children].indexOf(td)].innerText.trim();
+        const route = task === "Nachbefragung" ? "questioning" : "task/"+task;
+
+        input.onmouseover = async () => {
+            const info = await fetch(`/api/checkboard/desk/${team}/${route}`).then(r => r.json());
+            const changeTimeDiff = Math.round((Date.now() - info.last_change) / (1000 * 60))
+            td.title = `Letzte Änderung durch ${info.changed_by.name} vor ${changeTimeDiff !== 1 ? changeTimeDiff+" Minuten" : "einer Minute"}`;
+        }
+    }
 }
 
 
