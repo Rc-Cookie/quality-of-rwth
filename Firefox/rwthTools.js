@@ -266,7 +266,7 @@ function onGuestDashboard() {
 
 function onRWTHOnlineLoginPage() {
     when(() => document.getElementsByClassName("ca-button btn btn-primary btn-block").length != 0).then(() => {
-        location.href = "https://online.rwth-aachen.de/RWTHonline/Login";
+        location.href = location.origin+"/RWTHonline/Login";
     });
 }
 
