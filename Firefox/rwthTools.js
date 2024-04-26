@@ -278,7 +278,7 @@ function onVideoAG() {
 function onPSPLogin() {
     let interval = window.setInterval(() => {
         if(location.href.includes("login")) {
-            location.href = "https://psp.embedded.rwth-aachen.de/api/auth/login?redirect=%2F";
+            location.href = location.origin+"/api/auth/login?redirect=%2F";
             window.clearInterval(interval);
         }
     }, 100);
