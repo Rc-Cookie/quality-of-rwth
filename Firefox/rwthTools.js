@@ -136,18 +136,6 @@ let functions = {
         allowSubsequent: true,
         setting: "autoDarkMode"
     },
-    // Adds a button to the PSP website to clear all boxes on the experiment overview page
-    PSPClearAllBoxesButton: {
-        regex: /^psp(-website-dev)?\.embedded\.rwth-aachen\.de\/experiments-overview/,
-        action: clearPSPBoxes,
-        allowSubsequent: true
-    },
-    // Adds a button to the PSP website to kick the students from the selected VMs immediately
-    PSPAddKickFunction: {
-        regex: /^psp(-website-dev)?\.embedded\.rwth-aachen\.de\/vmpool/,
-        action: addPSPKickFunction,
-        allowSubsequent: true
-    },
     // Submit the text input when pressing ctrl + enter
     PSPHiwiCtrlEnterSubmit: {
         regex: /^hiwi\.embedded\.rwth-aachen\.de\/?(\?.*)?/,
@@ -592,43 +580,6 @@ async function onPSPDarkMode() {
         btn.click();
         await new Promise(r => setTimeout(r));
     }
-}
-
-async function clearPSPBoxes() {
-    const btn = await when(() => document.getElementsByClassName("ml-auto hover-row-button v-btn")[0]);
-    btn.addEventListener("click", () => {
-        [...document.getElementsByTagName("input")].filter(i => i.type === "checkbox" && i.checked).forEach(c => c.click());
-    });
-}
-
-async function addPSPKickFunction() {
-
-    const kickBtn = await when(() => document.getElementsByClassName("v-btn v-btn--text v-size--default")[7]);
-    const divider = kickBtn.nextSibling;
-    kickBtn.parentElement.insertBefore(divider.cloneNode(true), divider);
-
-    const btn = kickBtn.cloneNode(true);
-    btn.title = "Sofort kicken";
-    btn.classList = document.getElementsByClassName("v-btn v-btn--text v-size--default")[10].classList;
-    btn.style.color = "red";
-    kickBtn.parentElement.insertBefore(btn, divider);
-
-    btn.children[0].addEventListener("click", async () => {
-        const selectedNames = [...document.getElementsByTagName("tbody")[0].children]
-            .filter(r => r.getElementsByClassName("mdi-checkbox-marked").length !== 0)
-            .map(r => r.children[2].innerText);
-        if(selectedNames.length === 0) return;
-
-        const sessions = (await fetch(location.origin+"/api/vmm/vm").then(r => r.json()))
-            .filter(vm => selectedNames.filter(n => vm.name.endsWith(n)).length !== 0)
-            .map(vm => vm.session.id);
-        const token = document.cookie.split(";")
-            .filter(c => c.startsWith("XSRF-TOKEN="))[0]
-            .substring("XSRF-TOKEN=".length);
-        for(const session of sessions)
-            await fetch(location.origin+"/api/vmm/session/"+session, { method: "DELETE", headers: { "X-CSRF-Token": token } });
-        alert("You monster");
-    });
 }
 
 async function addPSPCtrlEnterSubmit() {
