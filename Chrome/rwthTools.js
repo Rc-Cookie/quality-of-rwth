@@ -39,7 +39,7 @@ let functions = {
     },
     // Click the "Login" button on the psp page
     autoLoginOnPSP: {
-        regex: /^psp(-website-dev)?\.embedded\.rwth-aachen\.de/,
+        regex: /^psp(-website-dev)?\.embedded\.rwth-aachen\.de\/login/,
         action: onPSPLogin,
         allowSubsequent: true
     },
@@ -266,12 +266,7 @@ function onVideoAG() {
 }
 
 function onPSPLogin() {
-    let interval = window.setInterval(() => {
-        if(location.href.includes("login")) {
-            location.href = location.origin+"/api/auth/login?redirect=%2F";
-            window.clearInterval(interval);
-        }
-    }, 100);
+    location.href = location.origin+"/api/auth/login?redirect=%2F";
 }
 
 async function onGitLoginPage() {
@@ -594,7 +589,18 @@ async function addPSPCtrlEnterSubmit() {
 }
 
 async function addPSPCheckboardHoverInfo() {
-    await when(() => document.querySelector("input[type=checkbox]"))
+
+    function titleResolver(el, team, route) {
+        return async () => {
+            const info = await fetch(`${location.origin}/api/checkboard/desk/${team}/${route}`).then(r => r.json());
+            if(!info.changed_by) return; // Never modified
+            const changeTimeDiff = Math.round((Date.now() - info.last_change) / (1000 * 60))
+            el.title = `Letzte Änderung durch ${info.changed_by.name} vor ${changeTimeDiff !== 1 ? changeTimeDiff+" Minuten" : "einer Minute"}`;
+        }
+    }
+
+    // Checkbox hover
+    await when(() => document.querySelector("input[type=checkbox]"));
     for(const input of document.querySelectorAll("input[type=checkbox]")) {
         let td = input.parentElement;
         while(td && td.tagName !== "TD") td = td.parentElement;
@@ -607,13 +613,13 @@ async function addPSPCheckboardHoverInfo() {
         const thead = tbody.previousElementSibling;
         const task = thead.children[0].children[[...td.parentElement.children].indexOf(td)].innerText.trim();
         const route = task === "Nachbefragung" ? "questioning" : "task/"+task;
+        input.onmouseover = titleResolver(td, team, route);
+    }
 
-        input.onmouseover = async () => {
-            const info = await fetch(`${location.origin}/api/checkboard/desk/${team}/${route}`).then(r => r.json());
-            if(!info.changed_by) return; // Never modified
-            const changeTimeDiff = Math.round((Date.now() - info.last_change) / (1000 * 60))
-            td.title = `Letzte Änderung durch ${info.changed_by.name} vor ${changeTimeDiff !== 1 ? changeTimeDiff+" Minuten" : "einer Minute"}`;
-        }
+    // Queue hover
+    const queue = await when(() => document.querySelector(".v-table.v-table--has-top.v-table--has-bottom")?.nextElementSibling);
+    queue.onmouseover = () => {
+        [...queue.children].filter(c => c.tagName === "SPAN").forEach(async c => await titleResolver(c, c.innerText, "questioning")())
     }
 }
 
