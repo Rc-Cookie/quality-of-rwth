@@ -12,6 +12,8 @@
 <body>
     <form>
         <table>
+            <tr><td colspan="2"><h2>Login</h2></td></tr>
+
             <tr>
                 <td><input class="settings-checkbox" type="checkbox" name="moodleStartAutoForward" checked></td>
                 <td>Auto-forward to SSO from the moodle start page</td>
@@ -33,6 +35,29 @@
                 <td>Automatically submit the login credentials on SSO when they get filled in by the browser</td>
             </tr>
             <tr>
+                <td><input class="settings-checkbox" type="checkbox" name="autoMailLoginSubmit" checked></td>
+                <td>Automatically submit the login credentials on mail.rwth-aachen.de when they get filled in by the browser</td>
+            </tr>
+            <tr>
+                <td><input class="settings-checkbox" type="checkbox" name="videoAGAutoLoginForward" checked></td>
+                <td>Automatically open the VideoAG login page when login is required</td>
+            </tr>
+            <tr>
+                <td><input class="settings-checkbox" type="checkbox" name="autoGitLoginForward" checked></td>
+                <td>Automatically open the GitLab login page when login is required</td>
+            </tr>
+            <tr>
+                <td><input class="settings-checkbox" type="checkbox" name="autoSelectInstitution" checked></td>
+                <td>Automatically select 'RWTH' as the insitution when promped for authentification</td>
+            </tr>
+            <tr>
+                <td><input class="settings-checkbox" type="checkbox" name="rememberMe" checked></td>
+                <td>Use "Remember Me" login options when available during automatic login</td>
+            </tr>
+
+            <tr><td colspan="2"><h3>Multi-Factor-Authentication (MFA)</h3></td></tr>
+
+            <tr>
                 <td><input class="settings-checkbox" type="checkbox" name="autoSelectMFAOption" checked></td>
                 <td>Automatically select the last choosen MFA token method</td>
             </tr>
@@ -40,10 +65,24 @@
                 <td><input class="settings-checkbox" type="checkbox" name="autoMFASubmit" checked></td>
                 <td>Automatically submit the MFA token credentials on SSO when they get filled in by the browser</td>
             </tr>
+
+            <tr><td colspan="2"><h3>App Authorization</h3></td></tr>
+
             <tr>
-                <td><input class="settings-checkbox" type="checkbox" name="autoMailLoginSubmit" checked></td>
-                <td>Automatically submit the login credentials on mail.rwth-aachen.de when they get filled in by the browser</td>
+                <td><select class="settings-dropdown" name="autoAuthorize">
+                    <option value="never" title="Behaves like the regular page - if select 'Remember', it will remember until the permissions change">Never</option>
+                    <option value="confirmOnce" title="Once you confirm once and select 'Remember', the app will always be authorized, even if the permissions change later" selected>After confirmed once</option>
+                    <option value="always" title="Always immediately authorize, even if you never authorzed manually or selected 'Don't remember'">Always immediately</option>
+                </select></td>
+                <td>When to automatically confirm apps to access your information</td>
             </tr>
+            <tr>
+                <td><input class="settings-checkbox" type="checkbox" name="autoAuthorize" checked></td>
+                <td>Automatically authorize apps you already authorized before</td>
+            </tr>
+
+            <tr><td colspan="2"><h2>Moodle</h2></td></tr>
+
             <tr>
                 <td><input class="settings-checkbox" type="checkbox" name="removeChatPopup" checked></td>
                 <td>Remove the "chat" popup on Moodle</td>
@@ -60,46 +99,13 @@
                 <td><input class="settings-checkbox" type="checkbox" name="clickURLResources" checked></td>
                 <td>Automatically open "Click this link to open resource" links</td>
             </tr>
-            <tr>
-                <td><input class="settings-checkbox" type="checkbox" name="videoAGAutoLoginForward" checked></td>
-                <td>Automatically open the VideoAG login page when login is required</td>
-            </tr>
-            <tr>
-                <td><input class="settings-checkbox" type="checkbox" name="autoGitLoginForward" checked></td>
-                <td>Automatically open the GitLab login page when login is required</td>
-            </tr>
-            <tr>
-                <td><input class="settings-checkbox" type="checkbox" name="autoSelectInstitution" checked></td>
-                <td>Automatically select 'RWTH' as the insitution when promped for authentification</td>
-            </tr>
-            <tr>
-                <td><select class="settings-dropdown" name="autoAuthorize">
-                    <option value="never" title="Behaves like the regular page - if select 'Remember', it will remember until the permissions change">Never</option>
-                    <option value="confirmOnce" title="Once you confirm once and select 'Remember', the app will always be authorized, even if the permissions change later" selected>After confirmed once</option>
-                    <option value="always" title="Always immediately authorize, even if you never authorzed manually or selected 'Don't remember'">Always immediately</option>
-                </select></td>
-                <td>When to automatically confirm apps to access your information</td>
-            </tr>
-            <tr>
-                <td><input class="settings-checkbox" type="checkbox" name="autoAuthorize" checked></td>
-                <td>Automatically authorize apps you already authorized before</td>
-            </tr>
-            <tr>
-                <td><input class="settings-checkbox" type="checkbox" name="rememberMe" checked></td>
-                <td>Use "Remember Me" login options when available during automatic login</td>
-            </tr>
-            <tr>
-                <td><input class="settings-checkbox" type="checkbox" name="autoDarkMode" checked></td>
-                <td>Always select dark mode / light mode when available</td>
-            </tr>
-            <tr>
-                <td><input class="settings-checkbox" type="checkbox" name="lightMode"></td>
-                <td>Always select light mode (think twice before you use this)</td>
-            </tr>
             <tr>                                                                                                                   <!-- Chrome: -->
                 <td><input class="settings-checkbox" type="checkbox" name="cacheMoodlePages" checked></td>                         <!-- Chrome: -->
                 <td>Re-enable caching of Moodle pages so that the page does not get reloaded when you click the "back" button</td> <!-- Chrome: -->
             </tr>                                                                                                                  <!-- Chrome: -->
+
+            <tr><td colspan="2"><h2>Popup / Course search</h2></td></tr>
+
             <tr>
                 <td><input class="settings-value" name="maxCourses" type="number" step="1" min="1" max="50" value="10"></td>
                 <td>Maximum number of courses to show in dropdown. Higher numbers may significantly increase load time</td>
@@ -110,8 +116,8 @@
             </tr>
             <tr>
                 <td><select class="settings-dropdown" name="courseOrder">
-                    <option value="time">By access time</option>
-                    <option value="name">By name</option>
+                    <option value="time" title="Show the course first that was last visited">By access time</option>
+                    <option value="name" title="Sort the courses alphabetically">By name</option>
                 </select></td>
                 <td>Sorting order for courses in the toolbar dropdown menu</td>
             </tr>
@@ -129,10 +135,23 @@
                     </div>
                 </td>
             </tr>
-            <tr><td><br></td></tr>
+
+            <tr><td colspan="2"><h2>Miscellaneous</h2></td></tr>
+
             <tr>
-                <td><h3>Ignored websites</h3></td>
-                <td>
+                <td><input class="settings-checkbox" type="checkbox" name="autoDarkMode" checked></td>
+                <td>Always select dark mode / light mode when available</td>
+            </tr>
+            <tr>
+                <td><input class="settings-checkbox" type="checkbox" name="lightMode"></td>
+                <td>Always select light mode (really?)</td>
+            </tr>
+
+            <tr><td colspan="2"><h2>Ignored websites</h2></td></tr>
+
+            <tr>
+                <!-- <td><h3>Ignored websites</h3></td> -->
+                <td colspan="2">
                     <div>
                         You can specify websites where the extension will not run (at best effort), if you are having trouble with a page when the extension is enabled.
                         Specify a domain and optionally a route, e.g. <code>test.rwth-aachen.de/my/site</code>.
