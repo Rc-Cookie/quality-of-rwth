@@ -8,6 +8,31 @@ let functions = {
         action: registerActiveTab,
         allowSubsequent: true
     },
+    // Remembers the last choosen token from the MFA page
+    registerMFAOption: {
+        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        action: registerMFAOption,
+        allowSubsequent: true
+    },
+    // Selects the last choosen MFA token and continues, if a last token is remembered and the user didn't
+    // choose the restart option (actively trying to select a different token).
+    autoSelectMFAOption: {
+        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        action: autoSelectMFAOption,
+        allowSubsequent: true
+    },
+    // Renames the MFA restart button to something more clear, and explain what the token type is
+    improveMFANamings: {
+        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        action: improveMFANamings,
+        allowSubsequent: true
+    },
+    // Automatically submit the token when autofilled by the browser
+    autoMFASubmit: {
+        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        action: autoMFASubmit,
+        allowSubsequent: true
+    },
     // Click "login" on moodle welcome page
     moodleStartAutoForward: {
         regex: /^moodle\.rwth-aachen\.de$/,
@@ -248,6 +273,78 @@ function registerActiveTab() {
     window.onblur = unsetActive;
 }
 
+async function registerMFAOption() {
+    const select = await when(() => document.getElementById("fudis_selected_token_ids_input"));
+    const submit = await when(() => document.querySelector("button[type=submit]"));
+
+    const options = { };
+    for(const o of select.options)
+        options[o.value] = o.innerText.replace(/^.*-.*-\s*/, "");
+    browser.storage.sync.set({ MFAOptionDescriptions: options })
+    console.log("Options:", options);
+
+    submit.addEventListener("click", () => browser.storage.sync.set({ selectedMFAOption: select.value }));
+}
+
+async function autoSelectMFAOption() {
+    const select = await when(() => document.getElementById("fudis_selected_token_ids_input"));
+    const option = (await browser.storage.sync.get("selectedMFAOption")).selectedMFAOption;
+    const execution = new URLSearchParams(location.search).get("execution");
+    if(!option || !execution || !execution.match(/\D[1-3]$/)) {
+        select.addEventListener("change", () => document.querySelector("button[type=submit]").click());
+        return;
+    }
+    select.value = option;
+    (await when(() => document.querySelector("button[type=submit]"))).click();
+}
+
+function improveMFANamings() {
+    renameMFARestartButton();
+    renameTokenTypeLabel();
+}
+
+async function renameMFARestartButton() {
+    const btn = await when(() => document.querySelector("button[name=_eventId_FudisCrRestart]"));
+    const texts = [...btn.childNodes].filter(n => n.nodeName === "#text");
+    if(!texts.length) return;
+    let text = texts[0];
+    for(const t of texts)
+        if(t.length > text.length)
+            text = t;
+    if(text.data.includes("Starte Tokenverfahren neu"))
+        text.data = " Anderes Token oder Recovery-Code nutzen";
+
+    btn.addEventListener("click", () => btn.innerText = "Wird neugestartet...");
+}
+
+async function renameTokenTypeLabel() {
+    const label = await when(() => document.getElementById("fudiscr-form").querySelector("nobr"));
+    const options = (await browser.storage.sync.get("MFAOptionDescriptions")).MFAOptionDescriptions || {};
+    const [_, type, id, info] = label.innerText.match(/(\S+).*\(([^\(]*)\)\s*(.*)$/);
+
+    let name;
+    if(type === "hotp" || type === "WebAuthn/FIDO2")
+        name = "Hardwaretoken";
+    else if(type === "totp")
+        name = "Authenticator-App";
+    else if(type === "mail")
+        name = "Email-Code";
+    else if(type === "tan")
+        name = "Recovery-Code";
+    else name = type;
+
+    const desc = options[id];
+    label.innerText = desc ? `${desc} (${name} ${id})\n${info}` : `${name} (${id})\n${info}`;
+}
+
+async function autoMFASubmit() {
+    addAutofillListener(
+        [],
+        document.getElementById("fudis_otp_input"),
+        document.querySelector("button[name=_eventId_proceed]")
+    );
+}
+
 function onGuestDashboard() {
     const h = document.getElementsByTagName("h1")[0];
     if(h && h.innerText.match(/\((?:Gast|Guest)\)/)) // When logging in, its first an <h2>. If you access the dashboard when already logged in its an <h1> for whatever reason
@@ -402,7 +499,7 @@ function onPDFAnnotator() {
 
 function onSSO() {
     addAutofillListener(
-        document.getElementById("username"),
+        [ document.getElementById("username") ],
         document.getElementById("password"),
         document.getElementById("login")
     );
@@ -410,23 +507,31 @@ function onSSO() {
 
 function onMailLogin() {
     addAutofillListener(
-        document.getElementById("username"),
+        [ document.getElementById("username") ],
         document.getElementById("password"),
         document.getElementsByClassName("signinbutton")[0]
     );
 }
 
-function addAutofillListener(username, password, submit) {
-    if(!(username && password && submit)) return;
+function addAutofillListener(usernames, password, submit) {
+    for(const username of usernames)
+        if(!username) return;
+    if(!(password && submit)) return;
 
-    if(username.value !== "" && password.value !== "") {
+    let allUsernames = true;
+    for(const username of usernames)
+        allUsernames &= username.value;
+    if(allUsernames && password.value !== "") {
         console.log("Password already entered");
         return submit.click();
     }
 
     let oldVal = "";
     let listener = () => {
-        if(password.value.length > oldVal.length + 5 && username.value.length >= 8)
+        let allUsernames = true;
+        for(const username of usernames)
+            allUsernames &= username.value.length >= 8;
+        if(password.value.length > oldVal.length + 5 && allUsernames)
             submit.click();
         oldVal = password.value;
     };
@@ -567,7 +672,7 @@ async function onEmbeddedHiwiLogin() {
 
     username.focus();
 
-    addAutofillListener(username, password, document.getElementById("login_submit"));
+    addAutofillListener([ username ], password, document.getElementById("login_submit"));
 }
 
 async function onPSPDarkMode() {
