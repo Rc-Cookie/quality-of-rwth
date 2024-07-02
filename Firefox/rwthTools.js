@@ -316,7 +316,7 @@ async function renameMFARestartButton() {
 }
 
 async function renameTokenTypeLabel() {
-    const label = await when(() => document.getElementById("fudiscr-form").querySelector("nobr"));
+    const label = await when(() => document.getElementById("fudiscr-form")?.querySelector("nobr"));
     const options = (await browser.storage.sync.get("MFAOptionDescriptions")).MFAOptionDescriptions || {};
     const [_, type, id, info] = label.innerText.match(/(\S+).*\(([^\(]*)\)\s*(.*)$/);
 
@@ -511,15 +511,15 @@ function onMailLogin() {
     );
 }
 
-function addAutofillListener(usernames, password, submit) {
+function addAutofillListener(usernames, password, submit, passwordFilter = undefined) {
     for(const username of usernames)
         if(!username) return;
     if(!(password && submit)) return;
 
     let allUsernames = true;
     for(const username of usernames)
-        allUsernames &= username.value;
-    if(allUsernames && password.value !== "") {
+        allUsernames &= username.value !== "";
+    if(allUsernames && password.value !== "" && (!passwordFilter || passwordFilter(password.value))) {
         console.log("Password already entered");
         return submit.click();
     }
@@ -529,7 +529,7 @@ function addAutofillListener(usernames, password, submit) {
         let allUsernames = true;
         for(const username of usernames)
             allUsernames &= username.value.length >= 8;
-        if(password.value.length > oldVal.length + 5 && allUsernames)
+        if(password.value.length > oldVal.length + 5 && allUsernames && (!passwordFilter || passwordFilter(password.value)))
             submit.click();
         oldVal = password.value;
     };

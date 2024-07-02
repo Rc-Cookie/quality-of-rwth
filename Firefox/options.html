@@ -62,8 +62,11 @@
                 <td>Automatically select the last choosen MFA token method</td>
             </tr>
             <tr>
-                <td><input class="settings-checkbox" type="checkbox" name="autoMFASubmit" checked></td>
-                <td>Automatically submit the MFA token credentials on SSO when they get filled in by the browser</td>
+                <td><input class="settings-checkbox" type="checkbox" name="autoMFASubmit"></td>
+                <td>
+                    Automatically submit the MFA token credentials on SSO when they get filled in by the browser.
+                    Mind you that if your browser autofills the wrong credentials (which is likely as its the same page as the username/password page) this produces an infinite loop.
+                </td>
             </tr>
 
             <tr><td colspan="2"><h3>App Authorization</h3></td></tr>
