@@ -575,18 +575,29 @@ function addAutofillListener(usernames, password, submit, passwordFilter = undef
         return submit.click();
     }
 
-    let oldVal = "";
+    const fields = [...usernames, password];
+    const oldVals = [];
+    for(const field of fields)
+        oldVals.push(field.value);
+
     let listener = () => {
-        let allUsernames = true;
-        for(const username of usernames)
-            allUsernames &= username.value.length >= 8;
-        if(Math.abs(password.value.length - oldVal.length) > 2 && allUsernames && (!passwordFilter || passwordFilter(password.value)))
+        let allPresent = true;
+        let anySuddenChange = false;
+        for(const i in fields) {
+            const field = fields[i];
+            allPresent &&= field.value.length >= 4 && (field !== password || !passwordFilter || passwordFilter(field.value));
+            anySuddenChange ||= Math.abs(field.value.length - oldVals[i].length) > 2;
+            oldVals[i] = field.value;
+        }
+        if(allPresent && anySuddenChange)
             submit.click();
-        oldVal = password.value;
     };
-    password.addEventListener("keyup", listener);
-    password.addEventListener("input", listener);
-    password.addEventListener("change", listener);
+
+    for(const field of fields) {
+        field.addEventListener("keyup", listener);
+        field.addEventListener("input", listener);
+        field.addEventListener("change", listener);
+    }
 
     submit.addEventListener("click", () => setTimeout(() => submit.disabled = true));
 }
