@@ -178,6 +178,10 @@ let functions = {
     // }
 }
 
+const ignoreURLChange = [
+    /^https:\/\/sso\.rwth-aachen\.de\/idp\/profile\/SAML2\/Redirect\/SSO\?execution=....(#.*)?$/
+];
+
 main();
 
 async function main() {
@@ -207,8 +211,15 @@ async function main() {
             if(!info.allowSubsequent) break;
         }
 
-        const href = location.href;
-        await when(() => location.href !== href);
+        let href;
+        outer: do {
+            href = location.href;
+            await when(() => location.href !== href);
+            for(const pat of ignoreURLChange)
+                if(pat.test(location.href))
+                    continue outer;
+            break;
+        } while(true);
         console.log("One-Page side change detected:", href, "->", location.href);
     }
 }
@@ -297,8 +308,47 @@ async function autoSelectMFAOption() {
 }
 
 function improveMFANamings() {
+    improveMFAForAutofill();
     renameMFARestartButton();
     renameTokenTypeLabel();
+}
+
+async function improveMFAForAutofill() {
+    const input = await when(() => document.getElementById("fudis_otp_input"));
+    const form = document.getElementById("fudiscr-form");
+    // Hint to browser / extension that this is a one-time password
+    form.autocomplete = input.autocomplete = "one-time-code";
+    if(!input.value.match(/^\d{6}(\d\d)?$/))
+        // If the browser filled in something that doesn't look like a one-time code, clear it
+        input.value = "";
+    // // This is necessary for BitWarden to detect the field as OTP
+    // input.type = "text";
+    if(!location.hash)
+        // Append '#mfa' to the URL. May help extensions to distinguish between the different
+        // stages of the login and use the correct password
+        location.hash = "#mfa";
+
+    // Set type to 'text', necessary for BitWarden to detect the input as OTP. Togglable
+    // in case an extension autofills the password, which would be visible in plaintext.
+    const setType = (await browser.storage.sync.get("setMFAInputType")).setMFAInputType !== false;
+    if(setType)
+        input.type = "text";
+
+    const el = document.createElement("span");
+    el.innerHTML = `
+        <table style="border: none"><tr style="border: none">
+            <td style="border: none"><input type="checkbox" id="qor-set-mfa-type"></td>
+            <td style="border: none"><label for="qor-set-mfa-type" style="font-weight: normal">
+                Show token in plaintext. This helps some password managers to autofill the token, but if your password manager autofills your regular password, you may want to disable this to avoid showing your password in plaintext. (Quality of RWTH)
+            </label></td>
+        </tr></table>`;
+    form.appendChild(el);
+    const box = form.querySelector("#qor-set-mfa-type");
+    box.checked = setType;
+    box.onchange = () => {
+        browser.storage.sync.set({ setMFAInputType: !!box.checked });
+        input.type = box.checked ? "text" : "password";
+    };
 }
 
 async function renameMFARestartButton() {
