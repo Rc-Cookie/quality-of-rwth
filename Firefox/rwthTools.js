@@ -532,7 +532,6 @@ function addAutofillListener(usernames, password, submit, passwordFilter = undef
             allUsernames &= username.value.length >= 8;
         if(Math.abs(password.value.length - oldVal.length) > 2 && allUsernames && (!passwordFilter || passwordFilter(password.value)))
             submit.click();
-        console.log("Change", Math.abs(password.value.length - oldVal.length) > 2, allUsernames, (!passwordFilter || passwordFilter(password.value)));
         oldVal = password.value;
     };
     password.addEventListener("keyup", listener);
