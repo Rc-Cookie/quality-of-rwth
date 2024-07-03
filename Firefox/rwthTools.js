@@ -339,7 +339,8 @@ async function autoMFASubmit() {
     addAutofillListener(
         [],
         document.getElementById("fudis_otp_input"),
-        document.querySelector("button[name=_eventId_proceed]")
+        document.querySelector("button[name=_eventId_proceed]"),
+        p => p.match(/^\d{6}(\d{2})?$/)
     );
 }
 
@@ -529,8 +530,9 @@ function addAutofillListener(usernames, password, submit, passwordFilter = undef
         let allUsernames = true;
         for(const username of usernames)
             allUsernames &= username.value.length >= 8;
-        if(password.value.length > oldVal.length + 5 && allUsernames && (!passwordFilter || passwordFilter(password.value)))
+        if(Math.abs(password.value.length - oldVal.length) > 2 && allUsernames && (!passwordFilter || passwordFilter(password.value)))
             submit.click();
+        console.log("Change", Math.abs(password.value.length - oldVal.length) > 2, allUsernames, (!passwordFilter || passwordFilter(password.value)));
         oldVal = password.value;
     };
     password.addEventListener("keyup", listener);
