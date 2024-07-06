@@ -1,6 +1,5 @@
 if(!window.browser)
     window.browser = chrome;
-console.log('Browser:', browser);
 
 const tokenPrefab = document.querySelector(".managed-token");
 const tokenList = tokenPrefab.parentElement;

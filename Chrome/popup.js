@@ -1,6 +1,5 @@
 if(!window.browser)
     window.browser = chrome;
-console.log('Browser:', browser);
 
 const listArea = document.getElementById("course-list");
 const listContainer = document.getElementById("course-list-container");

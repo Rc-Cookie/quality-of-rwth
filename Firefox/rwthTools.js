@@ -290,7 +290,7 @@ async function cacheCourses(sesskey) {
     if(resp[0].error)
         return console.error("Failed to load courses", resp[0].exception);
 
-    await browser.runtime.sendMessage({ command: "setStorage", storage: "local", data: { courseCache: resp[0].data.courses } })
+    await browser.runtime.sendMessage({ command: "setStorage", storage: "local", data: { courseCache: resp[0].data.courses } });
 }
 
 function registerActiveTab() {
@@ -484,10 +484,11 @@ async function fillManagedTOTPTokens() {
         const tokens = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
         if(tokens[totpId]) {
 
+            const token = tokens[totpId];
+
             function fillTOTP(e) {
                 e?.preventDefault();
-                const token = new jsOTP.totp().getOtp(tokens[totpId].key);
-                input.value = token;
+                input.value = new jsOTP.totp().getOtp(token.key);
                 // Potentially auto-submit with different script
                 input.dispatchEvent(new Event("change"));
             }
@@ -504,6 +505,16 @@ async function fillManagedTOTPTokens() {
             fillBtn.innerText = fillBtn.innerText.includes("Weiter") ? "Ausfüllen mit Quality-of-RWTH" : "Fill with Quality-of-RWTH";
             fillBtn.onclick = fillTOTP;
             submit.parentElement.insertBefore(fillBtn, submit);
+
+            if(!location.href.match(/s3(#.*)?$/) && token.generated && (new Date().getTime() - token.generated) < 1000*60*10) {
+                const el = document.createElement("span");
+                el.innerHTML = `<i>
+                    If you just generated a token for the extension, it sometimes doesn't work at first.
+                    Please wait 30 seconds until the code has changed and generally just retry a couple of times (by pressing the button above).
+                    This should fix itself automatically after a couple of minutes :)
+                </i>`;
+                submit.parentElement.insertBefore(el, submit);
+            }
         }
     }
 }
@@ -910,29 +921,29 @@ function moodleLogin() {
 
 async function startCreatingTOTPToken() {
     console.log("Starting to create TOTP token");
-    await browser.storage.local.set({ "creatingTOTPToken": new Date().getTime() });
+    await browser.runtime.sendMessage({ command: "setStorage", storage: "local", data: { "creatingTOTPToken": new Date().getTime() } });
 }
 
 async function creatingTOTPToken() {
-    const start = (await browser.storage.local.get("creatingTOTPToken")).creatingTOTPToken;
+    const start = (await browser.runtime.sendMessage({ command: "getStorage", storage: "local", name: "creatingTOTPToken" })).creatingTOTPToken;
     return !!start && new Date().getTime() - start < 60000;
 }
 
 async function createTOTPTokenOverviewPage() {
     if(!await creatingTOTPToken()) return;
-    (await when(() => document.querySelector("input.btn.btn-primary[type=submit]"))).click();
+    clickIDMSubmit();
 }
 
 async function createTOTPTokenSelectTypePage() {
     if(!await creatingTOTPToken()) return;
     (await when(() => [...document.querySelectorAll("input[type=radio]")].map(i => i.parentElement).filter(el => el.innerText.includes("TOTP"))[0])).click();
-    document.querySelector("input.btn.btn-primary[type=submit]").click();
+    clickIDMSubmit();
 }
 
 async function createTOTPTokenDescriptionPage() {
     if(!await creatingTOTPToken()) return;
     (await when(() => document.querySelector("input[type=text]"))).value = "Quality of RWTH";
-    document.querySelector("input.btn.btn-primary[type=submit]").click();
+    clickIDMSubmit();
 }
 
 async function createTOTPTokenFinishPage() {
@@ -942,14 +953,20 @@ async function createTOTPTokenFinishPage() {
     console.log(id+":", key);
 
     const tokens = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
-    tokens[id] = { key, name: "Quality of RWTH" };
+    tokens[id] = { key, name: "Quality of RWTH", generated: new Date().getTime() };
     await browser.storage.sync.set({ managedTOTPTokens: tokens });
 
     document.querySelector("input[type=text][required]").value = new jsOTP.totp().getOtp(key);
 
-    await browser.storage.local.set({ creatingTOTPToken: 0 });
+    await browser.runtime.sendMessage({ command: "setStorage", storage: "local", data: { creatingTOTPToken: 0 } });
     await browser.storage.sync.set({ selectedMFAOption: id });
-    document.querySelector("input.btn.btn-primary[type=submit]").click();
+    clickIDMSubmit();
+}
+
+async function clickIDMSubmit() {
+    const btn = (await when(() => document.querySelector("input.btn.btn-primary[type=submit]")));
+    btn.click();
+    btn.disabled = true;
 }
 
 function when(condition, pollingInterval = 100) {

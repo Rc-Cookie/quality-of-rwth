@@ -1,6 +1,5 @@
 if(!window.browser)
     window.browser = chrome;
-console.log('Browser:', browser);
 
 /*
 MIT License
