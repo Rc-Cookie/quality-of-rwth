@@ -412,7 +412,7 @@ async function improveMFAForAutofill() {
             name: form.querySelector("nobr").innerText.match(/([^(]*)\(/)?.[1] || id
         };
         await browser.storage.sync.set({ managedTOTPTokens: tokens });
-        input.value = new jsOTP.totp().getOtp(keyInput.value);
+        input.value = getTOTP(keyInput.value);
         input.dispatchEvent(new Event("change"));
     };
     addSubmit.onclick = save;
@@ -488,7 +488,7 @@ async function fillManagedTOTPTokens() {
 
             function fillTOTP(e) {
                 e?.preventDefault();
-                input.value = new jsOTP.totp().getOtp(token.key);
+                input.value = getTOTP(token.key);
                 // Potentially auto-submit with different script
                 input.dispatchEvent(new Event("change"));
             }
@@ -499,6 +499,7 @@ async function fillManagedTOTPTokens() {
                 return;
             }
 
+            document.getElementById("qor-auto-totp.submit")?.remove();
             const submit = form.querySelector("button[name=_eventId_proceed]");
             const fillBtn = submit.cloneNode(true);
             fillBtn.id = "qor-auto-totp-submit";
@@ -506,12 +507,10 @@ async function fillManagedTOTPTokens() {
             fillBtn.onclick = fillTOTP;
             submit.parentElement.insertBefore(fillBtn, submit);
 
-            if(!location.href.match(/s3(#.*)?$/) && token.generated && (new Date().getTime() - token.generated) < 1000*60*10) {
+            if(document.querySelectorAll("div.alert[role=alert]")) {
                 const el = document.createElement("span");
                 el.innerHTML = `<i>
-                    If you just generated a token for the extension, it sometimes doesn't work at first.
-                    Please wait 30 seconds until the code has changed and generally just retry a couple of times (by pressing the button above).
-                    This should fix itself automatically after a couple of minutes :)
+                    Every one-time-code can only be used once for login, after that you have to wait up to 30 seconds until it has changed...
                 </i>`;
                 submit.parentElement.insertBefore(el, submit);
             }
@@ -821,9 +820,8 @@ function removeChatPopup() {
     new MutationObserver(hide).observe(page, { childList: true });
 }
 
-function acceptCookies() {
-    const ok = document.getElementById("cookie-confirm-btn");
-    if(ok) ok.click();
+async function acceptCookies() {
+    (await when(() => document.getElementById("cookie-confirm-btn"))).click();
 }
 
 async function onEmbeddedHiwiLogin() {
@@ -956,7 +954,7 @@ async function createTOTPTokenFinishPage() {
     tokens[id] = { key, name: "Quality of RWTH", generated: new Date().getTime() };
     await browser.storage.sync.set({ managedTOTPTokens: tokens });
 
-    document.querySelector("input[type=text][required]").value = new jsOTP.totp().getOtp(key);
+    document.querySelector("input[type=text][required]").value = getTOTP(key);
 
     await browser.runtime.sendMessage({ command: "setStorage", storage: "local", data: { creatingTOTPToken: 0 } });
     await browser.storage.sync.set({ selectedMFAOption: id });
@@ -967,6 +965,10 @@ async function clickIDMSubmit() {
     const btn = (await when(() => document.querySelector("input.btn.btn-primary[type=submit]")));
     btn.click();
     btn.disabled = true;
+}
+
+function getTOTP(key) {
+    return new jsOTP.totp().getOtp(key);
 }
 
 function when(condition, pollingInterval = 100) {
