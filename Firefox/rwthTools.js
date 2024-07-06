@@ -948,7 +948,6 @@ async function createTOTPTokenFinishPage() {
     if(!await creatingTOTPToken()) return;
     const id = (await when(() => document.querySelector("main"))).innerText.match("TOTP[0-9A-Fa-f]+")[0];
     const key = document.querySelector("a[href^=otpauth]").href.match(/secret=([0-9A-Za-z]+)&/)[1];
-    console.log(id+":", key);
 
     const tokens = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
     tokens[id] = { key, name: "Quality of RWTH", generated: new Date().getTime() };
