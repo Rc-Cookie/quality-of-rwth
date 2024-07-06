@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Quality of RWTH",
-    "version": "1.9.3",
+    "version": "1.10.0",
     "description": "Makes RWTH websites more enjoyable",
     "permissions": [
         "*://*.rwth-aachen.de/*",
@@ -16,6 +16,7 @@
                 "*://*.rwth.video/*"
             ],
             "js": [
+                "totp.js",
                 "rwthTools.js"
             ]
         }

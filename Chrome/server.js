@@ -1,4 +1,6 @@
-const browser = chrome;
+if(!window.browser)
+    window.browser = chrome;
+console.log('Browser:', browser);
 
 let activeTab = undefined;
 

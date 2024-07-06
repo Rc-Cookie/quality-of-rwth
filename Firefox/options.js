@@ -1,3 +1,8 @@
+const tokenPrefab = document.querySelector(".managed-token");
+const tokenList = tokenPrefab.parentElement;
+const noTokens = document.getElementById("no-tokens")
+tokenPrefab.remove();
+
 main();
 
 function main() {
@@ -8,10 +13,12 @@ function main() {
     for(const input of document.getElementsByClassName("settings-dropdown"))
         loadAndAddListener(input, "value");
 
+    loadManagedTokens();
     loadHiddenCourses();
     loadIgnoredSites();
     browser.storage.sync.onChanged.addListener(change => {
         if(change.hiddenCourses) loadHiddenCourses();
+        if(change.managedTOTPTokens) loadManagedTokens();
     });
 }
 
@@ -25,6 +32,29 @@ function loadAndAddListener(element, valueField) {
         console.log("Updating settings:", settings);
         browser.storage.sync.set(settings)
     };
+}
+
+async function loadManagedTokens() {
+    const tokens = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
+    console.log("Tokens:", tokens);
+    const elements = [];
+
+    for(const id in tokens) {
+        const html = tokenPrefab.cloneNode(true);
+        html.querySelector(".token-id").innerText = id;
+        html.querySelector(".token-name").innerText = tokens[id].name;
+        html.querySelector("button").onclick = async () => {
+            const ts = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
+            delete ts[id];
+            await browser.storage.sync.set({ managedTOTPTokens: ts });
+            if(html.parentElement.childElementCount === 1)
+                noTokens.hidden = false;
+            html.remove();
+        };
+        elements.push(html);
+    }
+    tokenList.replaceChildren(...elements);
+    noTokens.hidden = elements.length !== 0;
 }
 
 async function loadHiddenCourses() {

@@ -31,6 +31,13 @@ let functions = {
         action: autoMFASubmit,
         allowSubsequent: true
     },
+    // Fills in tokens managed by the extension either automatically or after a button click, depending
+    // on the settings and whether it is a login retry or not. This action itself should always be on.
+    fillManagedTOTPTokens: {
+        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        action: fillManagedTOTPTokens,
+        allowSubsequent: true
+    },
     // Click "login" on moodle welcome page
     moodleStartAutoForward: {
         regex: /^moodle\.rwth-aachen\.de$/,
@@ -170,6 +177,27 @@ let functions = {
     PSPAddCheckboardHoverInfo: {
         regex: /^psp(-website-dev)?\.embedded\.rwth-aachen\.de\/checkboard/,
         action: addPSPCheckboardHoverInfo,
+        allowSubsequent: true
+    },
+
+    createTOTPTokenOverviewPage: {
+        regex: /^idm\.rwth-aachen\.de\/selfservice\/MFATokenManager\?2$/,
+        action: createTOTPTokenOverviewPage,
+        allowSubsequent: true
+    },
+    createTOTPTokenSelectTypePage: {
+        regex: /^idm\.rwth-aachen\.de\/selfservice\/MFATokenManager\?3$/,
+        action: createTOTPTokenSelectTypePage,
+        allowSubsequent: true
+    },
+    createTOTPTokenDescriptionPage: {
+        regex: /^idm\.rwth-aachen\.de\/selfservice\/MFATokenManager\?4$/,
+        action: createTOTPTokenDescriptionPage,
+        allowSubsequent: true
+    },
+    createTOTPTokenFinishPage: {
+        regex: /^idm\.rwth-aachen\.de\/selfservice\/MFATokenManager\?5$/,
+        action: createTOTPTokenFinishPage,
         allowSubsequent: true
     }
     // loadVideoData: {
@@ -334,8 +362,24 @@ async function improveMFAForAutofill() {
     if(setType)
         input.type = "text";
 
+    const creatingToken = await creatingTOTPToken();
+    if(creatingToken)
+        document.querySelector("button[type=submit]").addEventListener("click", startCreatingTOTPToken);
+
     const el = document.createElement("span");
     el.innerHTML = `
+        <p style="margin-top: 10px">
+            ${!creatingToken ? `You can also <a id="qor-generate-token" href="#">generate a token</a> managed by the Quality of RWTH extension
+            or <a id="qor-add-token" href="#" onclick="document.getElementById('qor-add-token-area').hidden = false">add the current token</a> to be autofilled by extension.
+            This token will be entered by the extension automatically.
+            <i>Note that this effectively bypasses the 2FA mechanism on browsers with the extension.
+            Use it at your own risk!</i>` : `<i>To create a token, you need to login to SelfService first.</i>`}
+        </p>
+        <form id="qor-add-token-area" hidden>
+            Fill in the client secret for the current token. This is <i>not</i> visible in RWTH SelfService, you can only do this if you saved it somewhere or your current 2FA app can show it to you. Otherwise, you may have to create another token.
+            <input id="qor-add-token-input" class="form-control" type="text" title="Private key" placeholder="Private key">
+            <a id="qor-add-token-submit" class="btn btn-primary btn-block">Save and fill in</a>
+        </form>
         <table style="border: none"><tr style="border: none">
             <td style="border: none"><input type="checkbox" id="qor-set-mfa-type"></td>
             <td style="border: none"><label for="qor-set-mfa-type" style="font-weight: normal">
@@ -348,6 +392,36 @@ async function improveMFAForAutofill() {
     box.onchange = () => {
         browser.storage.sync.set({ setMFAInputType: !!box.checked });
         input.type = box.checked ? "text" : "password";
+    };
+
+    if(!creatingToken) {
+        const createToken = form.querySelector("#qor-generate-token");
+        createToken.onclick = async () => {
+            startCreatingTOTPToken();
+            location.href = "https://idm.rwth-aachen.de/selfservice/MFATokenManager";
+        };
+    }
+
+    const keyInput = form.querySelector("#qor-add-token-input");
+    const addSubmit = form.querySelector("#qor-add-token-submit");
+    async function save() {
+        const tokens = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
+        const id = form.querySelector("nobr").innerText.match(/TOTP[0-9A-Fa-f]+/)[0];
+        tokens[id] = {
+            key: keyInput.value,
+            name: form.querySelector("nobr").innerText.match(/([^(]*)\(/)?.[1] || id
+        };
+        await browser.storage.sync.set({ managedTOTPTokens: tokens });
+        input.value = new jsOTP.totp().getOtp(keyInput.value);
+        input.dispatchEvent(new Event("change"));
+    };
+    addSubmit.onclick = save;
+    keyInput.onsubmit = save;
+    keyInput.onkeydown = e => {
+        if(e.keyIdentifier == 'U+000A' || e.keyIdentifier == 'Enter' || e.keyCode == 13) {
+            e.preventDefault();
+            save();
+        }
     };
 }
 
@@ -386,12 +460,52 @@ async function renameTokenTypeLabel() {
 }
 
 async function autoMFASubmit() {
+    const form = document.getElementById("fudiscr-form");
+    if(!form || !form.querySelector("nobr")) return;
+
     addAutofillListener(
         [],
         document.getElementById("fudis_otp_input"),
-        document.querySelector("button[name=_eventId_proceed]"),
+        form.querySelector("button[name=_eventId_proceed]"),
         p => p.match(/^\d{6}(\d{2})?$/)
     );
+}
+
+async function fillManagedTOTPTokens() {
+
+    const form = document.getElementById("fudiscr-form");
+    if(!form) return;
+    const totpText = form.querySelector("nobr");
+    if(!totpText) return;
+
+    const input = document.getElementById("fudis_otp_input");
+    const totpId = totpText.innerText.match("TOTP[0-9A-Fa-f]+")?.[0];
+    if(totpId) {
+        const tokens = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
+        if(tokens[totpId]) {
+
+            function fillTOTP(e) {
+                e?.preventDefault();
+                const token = new jsOTP.totp().getOtp(tokens[totpId].key);
+                input.value = token;
+                // Potentially auto-submit with different script
+                input.dispatchEvent(new Event("change"));
+            }
+
+            const autofill = (await browser.storage.sync.get("autofillManagedMFA")).autofillManagedMFA !== false;
+            if(autofill && location.href.match(/s3(#.*)?$/)) {
+                fillTOTP();
+                return;
+            }
+
+            const submit = form.querySelector("button[name=_eventId_proceed]");
+            const fillBtn = submit.cloneNode(true);
+            fillBtn.id = "qor-auto-totp-submit";
+            fillBtn.innerText = fillBtn.innerText.includes("Weiter") ? "Ausfüllen mit Quality-of-RWTH" : "Fill with Quality-of-RWTH";
+            fillBtn.onclick = fillTOTP;
+            submit.parentElement.insertBefore(fillBtn, submit);
+        }
+    }
 }
 
 function onGuestDashboard() {
@@ -792,6 +906,50 @@ async function addPSPCheckboardHoverInfo() {
 
 function moodleLogin() {
     location.href = "https://moodle.rwth-aachen.de/auth/shibboleth/index.php";
+}
+
+async function startCreatingTOTPToken() {
+    console.log("Starting to create TOTP token");
+    await browser.storage.local.set({ "creatingTOTPToken": new Date().getTime() });
+}
+
+async function creatingTOTPToken() {
+    const start = (await browser.storage.local.get("creatingTOTPToken")).creatingTOTPToken;
+    return !!start && new Date().getTime() - start < 60000;
+}
+
+async function createTOTPTokenOverviewPage() {
+    if(!await creatingTOTPToken()) return;
+    (await when(() => document.querySelector("input.btn.btn-primary[type=submit]"))).click();
+}
+
+async function createTOTPTokenSelectTypePage() {
+    if(!await creatingTOTPToken()) return;
+    (await when(() => [...document.querySelectorAll("input[type=radio]")].map(i => i.parentElement).filter(el => el.innerText.includes("TOTP"))[0])).click();
+    document.querySelector("input.btn.btn-primary[type=submit]").click();
+}
+
+async function createTOTPTokenDescriptionPage() {
+    if(!await creatingTOTPToken()) return;
+    (await when(() => document.querySelector("input[type=text]"))).value = "Quality of RWTH";
+    document.querySelector("input.btn.btn-primary[type=submit]").click();
+}
+
+async function createTOTPTokenFinishPage() {
+    if(!await creatingTOTPToken()) return;
+    const id = (await when(() => document.querySelector("main"))).innerText.match("TOTP[0-9A-Fa-f]+")[0];
+    const key = document.querySelector("a[href^=otpauth]").href.match(/secret=([0-9A-Za-z]+)&/)[1];
+    console.log(id+":", key);
+
+    const tokens = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
+    tokens[id] = { key, name: "Quality of RWTH" };
+    await browser.storage.sync.set({ managedTOTPTokens: tokens });
+
+    document.querySelector("input[type=text][required]").value = new jsOTP.totp().getOtp(key);
+
+    await browser.storage.local.set({ creatingTOTPToken: 0 });
+    await browser.storage.sync.set({ selectedMFAOption: id });
+    document.querySelector("input.btn.btn-primary[type=submit]").click();
 }
 
 function when(condition, pollingInterval = 100) {

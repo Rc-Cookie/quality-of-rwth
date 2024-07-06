@@ -62,10 +62,37 @@
                 <td>Automatically select the last choosen MFA token method</td>
             </tr>
             <tr>
-                <td><input class="settings-checkbox" type="checkbox" name="autoMFASubmit"></td>
+                <td><input class="settings-checkbox" type="checkbox" name="autoMFASubmit" checked></td>
                 <td>
                     Automatically submit the MFA token credentials on SSO when they get filled in by the browser.
-                    Mind you that if your browser autofills the wrong credentials (which is likely as its the same page as the username/password page) this produces an infinite loop.
+                    The extension will only submit the input if it looks like a one-time password, that is, if it's 6 or 8 digits.
+                </td>
+            </tr>
+            <tr>
+                <td><input class="settings-checkbox" type="checkbox" name="autofillManagedMFA" checked></td>
+                <td>
+                    Enable the built-in MFA token generator, which automatically generates and fills in the MFA code.
+                    To use it, select to generate or add a token to be managed by the extension on the SSO login page.
+                </td>
+            </tr>
+
+            <tr><td colspan="2"><h4>Tokens managed by the extension:</h4></td></tr>
+            <tr>
+                <td colspan="2">
+                    <table>
+                        <tbody>
+                            <tr class="managed-token">
+                                <td>"<span class="token-name"></span>"</td>
+                                <td class="token-id" style="font-family: 'Courier New', Courier, monospace;"></td>
+                                <td><button title="Deletes the token from the extension. The token itself won't be deleted, it just won't be autofilled anymore">Delete</button></td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr id="no-tokens"><td>
+                                <i>None. You can add existing or generate new tokens from the SSO login page.</i>
+                            </td></tr>
+                        </tfoot>
+                    </table>
                 </td>
             </tr>
 
