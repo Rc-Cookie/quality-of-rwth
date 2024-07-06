@@ -68,7 +68,7 @@ public class ChromePorter {
             Files.createDirectories(target.getParent());
             String name = p.toString();
             if(name.endsWith(".js")) {
-                StringBuilder js = new StringBuilder("const browser = chrome;\n\n");
+                StringBuilder js = new StringBuilder("if(!window.browser)\n    window.browser = chrome;\n\n");
                 int lineNr = 1;
                 for(String line : Files.readAllLines(p)) {
                     Matcher m = JS_PATTERN.matcher(line);
