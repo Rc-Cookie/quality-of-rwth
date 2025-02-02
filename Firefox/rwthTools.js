@@ -155,9 +155,9 @@ let functions = {
         action: acceptCookies,
         allowSubsequent: true
     },
-    // Automatically select the login box in the I11 hiwi page and submit if autofilled
+    // Fix the broken login box on the internal embedded management websites and possible auto-submit the credentials
     autoEmbeddedHiwiLogin: {
-        regex: /^.*\.embedded\.rwth-aachen\.de/,
+        regex: /^(portal|checkliste|kaffeekasse|hiwi|periodictasks|terminverwaltung|reisen)\.embedded\.rwth-aachen\.de/,
         action: onEmbeddedHiwiLogin,
         allowSubsequent: true
     },
@@ -178,6 +178,18 @@ let functions = {
         regex: /^psp(-website-dev)?\.embedded\.rwth-aachen\.de\/checkboard/,
         action: addPSPCheckboardHoverInfo,
         allowSubsequent: true
+    },
+    // Forward to the admin login page when opening the client embedded ticket system
+    embeddedTicketAutoAdminForward: {
+        regex: /^ticket\.embedded\.rwth-aachen\.de(\/login\.php)?/,
+        action: onEmbeddedTicketAdminForward,
+        default: false,
+        allowSubsequent: true
+    },
+    // Automatically submit login credentials on the embedded ticket login pages
+    embeddedTicketAutoLogin: {
+        regex: /^ticket\.embedded\.rwth-aachen\.de\/scp\/login\.php/,
+        action: onEmbeddedTicketLogin
     },
 
     createTOTPTokenOverviewPage: {
@@ -225,7 +237,7 @@ async function main() {
                 return console.log("Ignored site:", site);
 
         for(let [name, info] of Object.entries(functions)) {
-            if(!url.match(info.regex)) continue;
+            if(!url.match(info.regex)) { console.log("No match:", name); continue; }
             const settingsName = info.setting ?? name;
             browser.storage.sync.get(settingsName).then(settings => {
                 if((settings[settingsName] === undefined && info.default !== false) || settings[settingsName] === true) try {
@@ -964,6 +976,22 @@ async function clickIDMSubmit() {
     const btn = (await when(() => document.querySelector("input.btn.btn-primary[type=submit]")));
     btn.click();
     btn.disabled = true;
+}
+
+async function onEmbeddedTicketAdminForward() {
+    location.href = "/scp/login.php";
+}
+
+async function onEmbeddedTicketLogin() {
+    console.log("a")
+    const username = await when(() => document.querySelector("#name,#username"));
+    console.log("b")
+    const password = await when(() => document.querySelector("#pass,#passwd"));
+    console.log("c")
+    const submit = await when(() => document.querySelector("[type=submit]"));
+    console.log(username, password, submit)
+    username.type = "username";
+    addAutofillListener([ username ], password, submit);
 }
 
 function getTOTP(key) {
