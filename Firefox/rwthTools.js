@@ -473,7 +473,7 @@ async function renameTokenTypeLabel() {
 
 async function autoMFASubmit() {
     const form = document.getElementById("fudiscr-form");
-    if(!form || !form.querySelector("nobr")) return;
+    if(!form) return;
 
     addAutofillListener(
         [],
@@ -487,46 +487,42 @@ async function fillManagedTOTPTokens() {
 
     const form = document.getElementById("fudiscr-form");
     if(!form) return;
-    const totpText = form.querySelector("nobr");
-    if(!totpText) return;
+    const totpId = form.innerText.match("TOTP[0-9A-Fa-f]+")?.[0];
+    if(!totpId) return;
 
-    const input = document.getElementById("fudis_otp_input");
-    const totpId = totpText.innerText.match("TOTP[0-9A-Fa-f]+")?.[0];
-    if(totpId) {
-        const tokens = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
-        if(tokens[totpId]) {
+    const tokens = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
+    if(!tokens[totpId]) return;
 
-            const token = tokens[totpId];
+    const token = tokens[totpId];
 
-            function fillTOTP(e) {
-                e?.preventDefault();
-                input.value = getTOTP(token.key);
-                // Potentially auto-submit with different script
-                input.dispatchEvent(new Event("change"));
-            }
+    function fillTOTP(e) {
+        e?.preventDefault();
+        const input = document.getElementById("fudis_otp_input");
+        input.value = getTOTP(token.key);
+        // Potentially auto-submit with different script
+        input.dispatchEvent(new Event("change"));
+    }
 
-            const autofill = (await browser.storage.sync.get("autofillManagedMFA")).autofillManagedMFA !== false;
-            if(autofill && location.href.match(/s3(#.*)?$/)) {
-                fillTOTP();
-                return;
-            }
+    const autofill = (await browser.storage.sync.get("autofillManagedMFA")).autofillManagedMFA !== false;
+    if(autofill && location.href.match(/s3(#.*)?$/)) {
+        fillTOTP();
+        return;
+    }
 
-            document.getElementById("qor-auto-totp.submit")?.remove();
-            const submit = form.querySelector("button[name=_eventId_proceed]");
-            const fillBtn = submit.cloneNode(true);
-            fillBtn.id = "qor-auto-totp-submit";
-            fillBtn.innerText = fillBtn.innerText.includes("Weiter") ? "Ausfüllen mit Quality-of-RWTH" : "Fill with Quality-of-RWTH";
-            fillBtn.onclick = fillTOTP;
-            submit.parentElement.insertBefore(fillBtn, submit);
+    document.getElementById("qor-auto-totp.submit")?.remove();
+    const submit = form.querySelector("button[name=_eventId_proceed]");
+    const fillBtn = submit.cloneNode(true);
+    fillBtn.id = "qor-auto-totp-submit";
+    fillBtn.innerText = fillBtn.innerText.includes("Weiter") ? "Ausfüllen mit Quality-of-RWTH" : "Fill with Quality-of-RWTH";
+    fillBtn.onclick = fillTOTP;
+    submit.parentElement.insertBefore(fillBtn, submit);
 
-            if(document.querySelectorAll("div.alert[role=alert]")) {
-                const el = document.createElement("span");
-                el.innerHTML = `<i>
-                    Every one-time-code can only be used once for login, after that you have to wait up to 30 seconds until it has changed...
-                </i>`;
-                submit.parentElement.insertBefore(el, submit);
-            }
-        }
+    if(document.querySelectorAll("div.alert[role=alert]")) {
+        const el = document.createElement("span");
+        el.innerHTML = `<i>
+            Every one-time-code can only be used once for login, after that you have to wait up to 30 seconds until it has changed...
+        </i>`;
+        submit.parentElement.insertBefore(el, submit);
     }
 }
 
@@ -548,7 +544,9 @@ function onVideoAG() {
 }
 
 function onPSPLogin() {
-    location.href = location.origin+"/api/auth/login?redirect=%2F";
+    const query = new URLSearchParams(location.search);
+    if(query.has("fail")) return;
+    location.href = location.origin+"/api/auth/login?redirect="+encodeURIComponent(query.get("redirect") || "/");
 }
 
 async function onGitLoginPage() {
