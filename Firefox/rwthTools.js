@@ -1,4 +1,4 @@
-let functions = {
+const functions = {
     // Registers this tab as the active tab and add listeners for lossing and gaining focus
     // for when it is needed (e.g. for whether to show the video download link - only show when on that tab)
     registerActiveTab: {
@@ -6,13 +6,13 @@ let functions = {
         action: registerActiveTab,
         allowSubsequent: true
     },
-    // Remembers the last choosen token from the MFA page
+    // Remembers the last chosen token from the MFA page
     registerMFAOption: {
         regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/(Redirect|POST)\/SSO/,
         action: registerMFAOption,
         allowSubsequent: true
     },
-    // Selects the last choosen MFA token and continues, if a last token is remembered and the user didn't
+    // Selects the last chosen MFA token and continues, if a last token is remembered and the user didn't
     // choose the restart option (actively trying to select a different token).
     autoSelectMFAOption: {
         regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/(Redirect|POST)\/SSO/,
@@ -232,18 +232,21 @@ main();
 
 async function main() {
     while(true) {
-        let url = location.href.replace(/https?\:\/\//, "");
+        let url = location.href.replace(/https?:\/\//, "");
         if(url.endsWith("/"))
             url = url.substring(0, url.length - 1);
 
         // Check if website is ignored, in that case exit
-        ignored = (await browser.storage.sync.get("ignoredSites")).ignoredSites || [];
-        for(site of ignored)
+        const ignored = (await browser.storage.sync.get("ignoredSites")).ignoredSites || [];
+        for(const site of ignored)
             if(url.match("([^/?#]\\.)?" + escapeRegExp(site) + "([/?#].*)?"))
                 return console.log("Ignored site:", site);
 
-        for(let [name, info] of Object.entries(functions)) {
-            if(!url.match(info.regex)) { console.log("No match:", name); continue; }
+        for(const [name, info] of Object.entries(functions)) {
+            if(!url.match(info.regex)) {
+                console.log("No match:", name);
+                continue;
+            }
             const settingsName = info.setting ?? name;
             browser.storage.sync.get(settingsName).then(settings => {
                 if((settings[settingsName] === undefined && info.default !== false) || settings[settingsName] === true) try {
@@ -319,7 +322,7 @@ function registerActiveTab() {
         browser.runtime.sendMessage({ command: "unsetActiveTab", data: { url: location.href } });
     }
     function onChange() {
-        if(document.visibilityState == "visible") setActive();
+        if(document.visibilityState === "visible") setActive();
         else unsetActive();
     }
     onChange();
@@ -424,20 +427,19 @@ async function improveMFAForAutofill() {
     const addSubmit = form.querySelector("#qor-add-token-submit");
     async function save() {
         const tokens = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
-        const totpLabel = form.querySelector("label").innerText;
-        const id = totpLabel.match(/TOTP[0-9A-Fa-f]+/)[0];
+        const { id, name } = getTokenInfos(form.querySelector("label"));
         tokens[id] = {
             key: keyInput.value,
-            name: totpLabel.match(/TOTP[0-9A-Fa-f]+\s*-\s*(.*)$/)?.[1] || id
+            name: name
         };
         await browser.storage.sync.set({ managedTOTPTokens: tokens });
         input.value = getTOTP(keyInput.value);
         input.dispatchEvent(new Event("change"));
-    };
+    }
     addSubmit.onclick = save;
     keyInput.onsubmit = save;
     keyInput.onkeydown = e => {
-        if(e.keyIdentifier == 'U+000A' || e.keyIdentifier == 'Enter' || e.keyCode == 13) {
+        if(e.keyIdentifier === 'U+000A' || e.keyIdentifier === 'Enter' || e.keyCode === 13) {
             e.preventDefault();
             save();
         }
@@ -459,23 +461,31 @@ async function renameMFARestartButton() {
 }
 
 async function renameTokenTypeLabel() {
-    const label = await when(() => document.getElementById("fudiscr-form")?.querySelector("nobr"));
-    const options = (await browser.storage.sync.get("MFAOptionDescriptions")).MFAOptionDescriptions || {};
-    const [_, type, id, info] = label.innerText.match(/(\S+).*\(([^\(]*)\)\s*(.*)$/);
+    const label = await when(() => document.getElementById("fudiscr-form")?.querySelector("label"));
+    const { id, type, name } = getTokenInfos(label);
 
-    let name;
+    let niceType;
     if(type === "hotp" || type === "WebAuthn/FIDO2")
-        name = "Hardwaretoken";
+        niceType = "Hardware-Token";
     else if(type === "totp")
-        name = "Authenticator-App";
+        niceType = "Authenticator-App";
     else if(type === "mail")
-        name = "Email-Code";
+        niceType = "Email-Code";
     else if(type === "tan")
-        name = "Recovery-Code";
-    else name = type;
+        niceType = "Recovery-Code";
+    else niceType = type;
 
-    const desc = options[id];
-    label.innerText = desc ? `${desc} (${name} ${id})\n${info}` : `${name} (${id})\n${info}`;
+    label.innerText = `${niceType} ${name} (${id})`;
+}
+
+function getTokenInfos(label) {
+    let infos = label.mfaInfos;
+    if(!infos) {
+        const [_, type, id, name] = label.innerText.match(/(\S+)\s*-\s*(\S+)(?:\s*-\s*(.*))?$/);
+        infos = { id, type, name: name || id };
+        label.mfaInfos = infos;
+    }
+    return infos;
 }
 
 async function autoMFASubmit() {
@@ -494,9 +504,8 @@ async function fillManagedTOTPTokens() {
 
     const form = document.getElementById("fudiscr-form");
     if(!form) return;
-    const totpId = form.innerText.match("TOTP[0-9A-Fa-f]+")?.[0];
-    if(!totpId) return;
 
+    const { id: totpId } = getTokenInfos(form.querySelector("label"));
     const tokens = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
     if(!tokens[totpId]) return;
 
@@ -570,7 +579,7 @@ async function onGitLoginPage() {
 }
 
 async function onSelectInstitution() {
-    const index = (await browser.storage.sync.get("intitution")).institution == "jülich" ? 1 : 0;
+    const index = (await browser.storage.sync.get("intitution")).institution === "jülich" ? 1 : 0;
     document.getElementsByClassName("row")[0].children[index].getElementsByTagName("a")[0].click();
 }
 
