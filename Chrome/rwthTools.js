@@ -11,33 +11,33 @@ let functions = {
     },
     // Remembers the last choosen token from the MFA page
     registerMFAOption: {
-        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/(Redirect|POST)\/SSO/,
         action: registerMFAOption,
         allowSubsequent: true
     },
     // Selects the last choosen MFA token and continues, if a last token is remembered and the user didn't
     // choose the restart option (actively trying to select a different token).
     autoSelectMFAOption: {
-        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/(Redirect|POST)\/SSO/,
         action: autoSelectMFAOption,
         allowSubsequent: true
     },
     // Renames the MFA restart button to something more clear, and explain what the token type is
     improveMFANamings: {
-        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/(Redirect|POST)\/SSO/,
         action: improveMFANamings,
         allowSubsequent: true
     },
     // Automatically submit the token when autofilled by the browser
     autoMFASubmit: {
-        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/(Redirect|POST)\/SSO/,
         action: autoMFASubmit,
         allowSubsequent: true
     },
     // Fills in tokens managed by the extension either automatically or after a button click, depending
     // on the settings and whether it is a login retry or not. This action itself should always be on.
     fillManagedTOTPTokens: {
-        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        regex: /^sso.rwth-aachen.de\/idp\/profile\/SAML2\/(Redirect|POST)\/SSO/,
         action: fillManagedTOTPTokens,
         allowSubsequent: true
     },
@@ -55,8 +55,14 @@ let functions = {
     },
     // Click "to login" on the RWTHOnline main page when not logged in
     rwthOnlineLoginAutoForward: {
-        regex: /^online\.rwth-aachen\.de\/RWTHonline\/ee\/ui\/ca2\/app\/desktop\/#\/login$/,
+        regex: /^online\.rwth-aachen\.de\/RWTHonline([?#].*)?$/,
         action: onRWTHOnlineLoginPage
+    },
+    // Click "Login" when logged in as guest on RWTHOnline (more realistically, you got logged out)
+    rwthOnlineGuessAutoLogin: {
+        regex: /^online\.rwth-aachen\.de\/RWTHonline\/ee\/ui\/ca2\/app\/desktop\/?([?#].*)?/,
+        action: onRWTHGuestLogin,
+        allowSubsequent: true
     },
     // Open the login page if a video page from the video AG requires login
     videoAGAutoLoginForward: {
@@ -95,7 +101,7 @@ let functions = {
     // Automatically click "Authorize" if you have to, if you already authorized the same app before
     autoSSOAuthorize: {
         // ^oauth\.campus\.rwth-aachen\.de\/manage\/?\?q=verify
-        regex: /^sso\.rwth-aachen\.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        regex: /^sso\.rwth-aachen\.de\/idp\/profile\/SAML2\/(Redirect|POST)\/SSO/,
         action: onAutoSSOAuthorize,
         allowSubsequent: true,
         setting: "" // Always run to store the known apps
@@ -114,7 +120,7 @@ let functions = {
     },
     // Automatically press "Login" on SSO if the browser filled in username and password
     ssoAutoSubmit: {
-        regex: /^sso\.rwth-aachen\.de\/idp\/profile\/SAML2\/Redirect\/SSO/,
+        regex: /^sso\.rwth-aachen\.de\/idp\/profile\/SAML2\/(Redirect|POST)\/SSO/,
         action: onSSO,
         allowSubsequent: true
     },
@@ -222,7 +228,7 @@ let functions = {
 }
 
 const ignoreURLChange = [
-    /^https:\/\/sso\.rwth-aachen\.de\/idp\/profile\/SAML2\/Redirect\/SSO\?execution=....(#.*)?$/
+    /^https:\/\/sso\.rwth-aachen\.de\/idp\/profile\/SAML2\/(Redirect|POST)\/SSO\?execution=....(#.*)?$/
 ];
 
 main();
@@ -421,10 +427,11 @@ async function improveMFAForAutofill() {
     const addSubmit = form.querySelector("#qor-add-token-submit");
     async function save() {
         const tokens = (await browser.storage.sync.get("managedTOTPTokens")).managedTOTPTokens || { };
-        const id = form.querySelector("nobr").innerText.match(/TOTP[0-9A-Fa-f]+/)[0];
+        const totpLabel = form.querySelector("label").innerText;
+        const id = totpLabel.match(/TOTP[0-9A-Fa-f]+/)[0];
         tokens[id] = {
             key: keyInput.value,
-            name: form.querySelector("nobr").innerText.match(/([^(]*)\(/)?.[1] || id
+            name: totpLabel.match(/TOTP[0-9A-Fa-f]+\s*-\s*(.*)$/)?.[1] || id
         };
         await browser.storage.sync.set({ managedTOTPTokens: tokens });
         input.value = getTOTP(keyInput.value);
@@ -535,10 +542,12 @@ function onGuestDashboard() {
         moodleLogin();
 }
 
-function onRWTHOnlineLoginPage() {
-    when(() => document.getElementsByClassName("ca-button btn btn-primary btn-block").length != 0).then(() => {
-        location.href = location.origin+"/RWTHonline/Login";
-    });
+async function onRWTHOnlineLoginPage() {
+    location.href = (await when(() => document.getElementById("social-rwth-sso"))).href;
+}
+
+async function onRWTHGuestLogin() {
+    location.href = (await when(() => document.querySelector(".co-navbar-menu-login>a"))).href;
 }
 
 function onVideoAG() {
