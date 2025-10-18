@@ -1,4 +1,10 @@
-# Quality of RWTH browser extension
+
+<p align="center"><a href="https://github.com/Rc-Cookie/quality-of-rwth" target="_blank" rel="noreferrer noopener"><img width="250" alt="HTWR Icon" src="https://github.com/Rc-Cookie/quality-of-rwth/blob/main/Chrome/icons/htwr.png?raw=true"></a></p>
+<p align="center"><strong>Quality of RWTH</strong> improves the usability of RWTH websites.</p>
+<br/>
+<p align="center"><a rel="noreferrer noopener" href="https://chromewebstore.google.com/detail/quality-of-rwth/hhjhbkpidgloeeflpnoajpicjhocbdjk"><img alt="Chrome Web Store" src="https://img.shields.io/badge/Chrome-141e24.svg?&style=for-the-badge&logo=google-chrome&logoColor=white"></a>  <a rel="noreferrer noopener" href="https://addons.mozilla.org/en-US/firefox/addon/quality-of-rwth"><img alt="Firefox Add-ons" src="https://img.shields.io/badge/Firefox-141e24.svg?&style=for-the-badge&logo=firefox-browser&logoColor=white"></a>
+
+## 
 
 This is a browser extension to improve some of the web pages of the RWTH University, particularly those ones who students have to use on a daily basis.
 This includes:
