@@ -28,6 +28,8 @@ public class UserScriptPorter {
         header.append("// @author RcCookie and Contributors\n");
         header.append("// @version ").append(manifest.getString("version")).append('\n');
         header.append("// @inject-info content\n");
+        header.append("// @updateURL https://raw.githubusercontent.com/Rc-Cookie/quality-of-rwth/refs/heads/main/UserScript/qualityOfRWTH.meta.js\n");
+        header.append("// @downloadURL https://raw.githubusercontent.com/Rc-Cookie/quality-of-rwth/refs/heads/main/UserScript/qualityOfRWTH.user.js\n");
 
         for(String m : contentScript.get("matches").asList(String.class))
             header.append("// @match ").append(m).append('\n');
