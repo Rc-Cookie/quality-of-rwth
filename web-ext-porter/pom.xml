@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>de.rccookie</groupId>
-  <artifactId>web-ext-chrome-porter</artifactId>
+  <artifactId>web-ext-porter</artifactId>
   <version>0</version>
 
   <properties>

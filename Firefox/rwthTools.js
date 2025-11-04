@@ -951,7 +951,7 @@ async function startCreatingTOTPToken() {
 }
 
 async function creatingTOTPToken() {
-    const start = (await browser.runtime.sendMessage({ command: "getStorage", storage: "local", name: "creatingTOTPToken" })).creatingTOTPToken;
+    const start = (await browser.runtime.sendMessage({ command: "getStorage", storage: "local", name: "creatingTOTPToken" }) || {}).creatingTOTPToken;
     return !!start && new Date().getTime() - start < 60000;
 }
 
