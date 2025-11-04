@@ -37,7 +37,7 @@ I haven't tested all the features on there, and it's also really annoying to deb
 
 ### Installation
 
-- Download and enable [Userscripts Extension](https://apps.apple.com/us/app/userscripts/id1463298887) (or some other script manager, if you want to try).
+- Download and enable the [Userscripts Extension](https://apps.apple.com/us/app/userscripts/id1463298887) (or some other script manager, if you want to try).
   Note that on iOS at least the process of enabling the extension is pretty unintuitive, just downloading isn't enough.
 - Open the [Quality-of-RWTH script file](https://raw.githubusercontent.com/Rc-Cookie/quality-of-rwth/refs/heads/main/UserScript/qualityOfRWTH.user.js) in Safari.
 - Open the Userscripts extension from within Safari (on iOS, that is using the puzzle icon on the left of the URL bar, and then selecting it from the menu. If it's not there, you first need to enable it).
